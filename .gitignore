@@ -1,0 +1,70 @@
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Google OAuth & Firebase credentials
+client_secret*.json
+google-services.json
+firebase-adminsdk*.json
+service-account*.json
+
+# Flutter/Dart
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# iOS
+**/ios/**/Pods/
+**/ios/**/xcuserdata
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral
+
+# Web
+lib/generated_plugin_registrant.dart
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Node modules
+node_modules/
+
+# Coverage
+coverage/
+*.lcov
