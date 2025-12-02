@@ -1,10 +1,10 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../lib/firebase';
 
-export type GeminiModelType = "gemini-1.5-flash" | "gemini-1.5-pro" | "gemini-1.5-flash-8b";
+export type GeminiModelType = "gemini-2.5-flash-lite" | "gemini-1.5-flash" | "gemini-1.5-pro" | "gemini-1.5-flash-8b";
 
 class GeminiService {
-    private currentModel: GeminiModelType = "gemini-1.5-flash";
+    private currentModel: GeminiModelType = "gemini-2.5-flash-lite";
 
     public setModel(model: GeminiModelType) {
         this.currentModel = model;

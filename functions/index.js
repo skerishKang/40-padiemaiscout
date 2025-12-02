@@ -313,6 +313,34 @@ function getApiKeysFromEnv() {
   }
 }
 
+// --- Helper Function: 허용된 Gemini 모델 목록 읽기 ---
+function getAllowedModelsFromEnv() {
+  try {
+    const modelsString = process.env.GEMINI_ALLOWED_MODELS ||
+      (functions.config().gemini && functions.config().gemini.models);
+
+    const fallbackModels = [
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+    ];
+
+    if (!modelsString) {
+      return fallbackModels;
+    }
+
+    const models = modelsString
+      .split(",")
+      .map((m) => m.trim())
+      .filter((m) => m);
+
+    return models.length > 0 ? models : fallbackModels;
+  } catch (e) {
+    console.error("환경 변수에서 Gemini 모델 목록 읽기 중 오류:", e);
+    return ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"];
+  }
+}
+
 // --- 실험용 API 키 유효성 검사 함수 (인증/권한 체크 주석처리) ---
 exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
   // // 운영 시 인증 필요
@@ -324,7 +352,7 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
   if (apiKeys.length === 0) {
     return { status: "error", message: "설정된 Gemini API 키가 없습니다." };
   }
-  const testModelName = "gemini-1.5-flash-latest";
+  const testModelName = "gemini-2.5-flash-lite";
   for (const apiKey of apiKeys) {
     if (!apiKey) continue;
     const apiKeyShort = apiKey.substring(0, 5) + "...";
@@ -350,8 +378,8 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
 // for model in genai.list_models():
 //     print(model)
 // Node.js SDK에는 listModels 직접 지원이 없으므로, 공식 문서 또는 REST API 참고
-// 최신 모델명 예시: gemini-1.5-flash, gemini-1.5-pro, gemini-pro 등
-const GEMINI_MODEL_NAME = "models/gemini-2.0-flash";
+// 최신 모델명 예시: gemini-2.5-flash-lite, gemini-1.5-flash, gemini-1.5-pro 등
+const GEMINI_MODEL_NAME = "gemini-2.5-flash-lite";
 
 // --- 적합성 분석 Cloud Function ---
 exports.checkSuitability = functions.https.onCall(async (data, context) => {
@@ -422,7 +450,7 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
 
 // --- Chat with Gemini Cloud Function ---
 exports.chatWithGemini = functions.https.onCall(async (data, context) => {
-  const { prompt, fileData } = data;
+  const { prompt, fileData, model: preferredModel } = data || {};
 
   if (!prompt) {
     return { status: "error", message: "Prompt is required" };
@@ -433,38 +461,62 @@ exports.chatWithGemini = functions.https.onCall(async (data, context) => {
     return { status: "error", message: "No Gemini API keys configured" };
   }
 
+  const allowedModels = getAllowedModelsFromEnv();
+
+  // 선호 모델 + 허용 모델을 합쳐서 시도 순서를 만든다.
+  const candidateModels = [];
+  if (preferredModel && allowedModels.includes(preferredModel)) {
+    candidateModels.push(preferredModel);
+  }
+  for (const m of allowedModels) {
+    if (!candidateModels.includes(m)) {
+      candidateModels.push(m);
+    }
+  }
+
   let lastError = null;
   for (const apiKey of apiKeys) {
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      // Use a model that supports vision if fileData is present, otherwise standard model
-      // For simplicity, using the configured model name or defaulting to flash
-      const modelName = GEMINI_MODEL_NAME || "gemini-1.5-flash";
-      const model = genAI.getGenerativeModel({ model: modelName });
+    const genAI = new GoogleGenerativeAI(apiKey);
 
-      const parts = [{ text: prompt }];
-      if (fileData) {
-        parts.push({
-          inlineData: {
-            mimeType: fileData.mimeType,
-            data: fileData.data
-          }
-        });
-      }
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
 
-      const result = await model.generateContent(parts);
-      const response = await result.response;
-      const text = response.text();
+        const parts = [{ text: prompt }];
+        if (fileData) {
+          parts.push({
+            inlineData: {
+              mimeType: fileData.mimeType,
+              data: fileData.data,
+            },
+          });
+        }
 
-      return { status: "success", text };
-    } catch (err) {
-      lastError = err;
-      console.error(`Gemini API error with key ${apiKey.substring(0, 5)}...:`, err);
-      if (!(err.message && err.message.toLowerCase().includes("quota"))) {
-        // If not a quota error, maybe try next key anyway? 
-        // For now, we treat non-quota errors as fatal for that key but try others just in case
-        // or break if we want to fail fast. 
-        // Let's continue to try other keys.
+        const result = await model.generateContent(parts);
+        const response = await result.response;
+        const text = response.text();
+
+        return { status: "success", text, model: modelName };
+      } catch (err) {
+        lastError = err;
+        const msg = (err && err.message) ? err.message : String(err || "");
+        console.error(`Gemini API error with key ${apiKey.substring(0, 5)}..., model ${modelName}:`, err);
+
+        const lower = msg.toLowerCase();
+        const isQuotaOrPermissionIssue =
+          lower.includes("quota") ||
+          lower.includes("exceeded") ||
+          lower.includes("permission") ||
+          lower.includes("permission_denied") ||
+          lower.includes("insufficient") ||
+          lower.includes("not found") ||
+          lower.includes("model");
+
+        if (!isQuotaOrPermissionIssue) {
+          // 모델 자체 문제가 아닌 다른 오류라면 이 키에서는 더 이상 시도하지 않고 다음 키로 이동
+          break;
+        }
+        // quota/권한/모델 관련 이슈면 다음 모델로 폴백
       }
     }
   }
