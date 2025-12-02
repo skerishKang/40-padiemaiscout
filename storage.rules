@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 사용자별 업로드 폴더
+    match /uploads/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || 
+         resource.metadata.isPublic == 'true');
+      allow write: if request.auth != null && 
+        request.auth.uid == userId &&
+        request.resource.size < 50 * 1024 * 1024 && // 50MB 제한
+        request.resource.contentType.matches('application/pdf|application/vnd.*|image/.*'); // PDF, Office, 이미지만 허용
+      allow delete: if request.auth != null && 
+        request.auth.uid == userId;
+    }
+    
+    // 공개 자료 (읽기 전용)
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // 관리자만 작성 가능
+    }
+    
+    // 분석 결과 저장소
+    match /analysis_results/{userId}/{resultId}/{fileName} {
+      allow read: if request.auth != null && 
+        request.auth.uid == userId;
+      allow write: if request.auth != null && 
+        request.auth.uid == userId &&
+        request.resource.size < 10 * 1024 * 1024; // 10MB 제한
+      allow delete: if request.auth != null && 
+        request.auth.uid == userId;
+    }
+    
+    // 임시 파일 저장소 (24시간 후 자동 삭제)
+    match /temp/{sessionId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        request.resource.size < 5 * 1024 * 1024 && // 5MB 제한
+        request.resource.metadata.sessionId == sessionId;
+      allow delete: if request.auth != null;
+    }
+  }
+}

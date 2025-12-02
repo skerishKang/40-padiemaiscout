@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "790627865650",
+    "project_id": "grantscout-af8da",
+    "storage_bucket": "grantscout-af8da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:790627865650:android:df2eae7f95d28fc28b582b",
+        "android_client_info": {
+          "package_name": "com.example.grantscout_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "790627865650-30fm9g6kase3rhtaio9uutk1gktkjip7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqc8T1C6iCm4-oSZMlg7vaIehsp8R69PE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "790627865650-30fm9g6kase3rhtaio9uutk1gktkjip7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

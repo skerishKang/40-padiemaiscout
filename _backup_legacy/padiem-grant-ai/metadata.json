@@ -1,0 +1,5 @@
+{
+  "name": "Padiem Grant AI",
+  "description": "AI-powered grant analysis and matchmaking platform using Gemini 2.5 Flash.",
+  "requestFramePermissions": []
+}
