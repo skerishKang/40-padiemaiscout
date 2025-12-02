@@ -9,14 +9,14 @@ const SidebarItem = ({ icon: Icon, label, to, active, onClick }: { icon: React.E
         to={to}
         onClick={onClick}
         className={clsx(
-            "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+            "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group border-l-4",
             active
-                ? "bg-primary-600 text-white shadow-md shadow-primary-200"
-                : "text-slate-600 hover:bg-slate-100 hover:text-primary-600"
+                ? "bg-primary-50 text-primary-700 shadow-sm border-primary-500"
+                : "text-slate-600 hover:bg-slate-100 hover:text-primary-600 border-transparent"
         )}
     >
-        <Icon size={20} className={clsx("transition-transform group-hover:scale-110", active ? "text-white" : "text-slate-400 group-hover:text-primary-600")} />
-        <span className="font-medium">{label}</span>
+        <Icon size={20} className={clsx("transition-transform group-hover:scale-110", active ? "text-primary-600" : "text-slate-400 group-hover:text-primary-600")} />
+        <span className="font-semibold">{label}</span>
     </Link>
 );
 
@@ -46,7 +46,7 @@ export default function Layout() {
                     </button>
 
                     <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900 tracking-tight">
-                        <img src="/logo.png" alt="PadiemScout" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
+                        <img src="/logo-main.png" alt="PadiemScout" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
                         <span className="hidden sm:inline bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">PadiemScout</span>
                     </Link>
                 </div>
@@ -57,7 +57,7 @@ export default function Layout() {
                         <button
                             onClick={() => setViewMode('desktop')}
                             className={clsx(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 cursor-pointer",
                                 viewMode === 'desktop'
                                     ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
                                     : "text-slate-500 hover:text-slate-700"
@@ -69,7 +69,7 @@ export default function Layout() {
                         <button
                             onClick={() => setViewMode('mobile')}
                             className={clsx(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 cursor-pointer",
                                 viewMode === 'mobile'
                                     ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
                                     : "text-slate-500 hover:text-slate-700"
@@ -164,32 +164,28 @@ export default function Layout() {
                 {/* Main Content Area */}
                 <main className={clsx(
                     "flex-1 overflow-hidden relative transition-all duration-300",
-                    viewMode === 'mobile' ? "flex justify-center items-center bg-slate-100/50 p-8" : "bg-slate-50/50"
+                    viewMode === 'mobile' ? "flex justify-center items-center bg-gradient-to-br from-sky-200 via-rose-200 to-amber-200 p-8" : "bg-slate-50/50"
                 )}>
                     <div className={clsx(
-                        "transition-all duration-300 flex flex-col bg-white shadow-2xl",
+                        "transition-all duration-300 flex flex-col",
                         viewMode === 'mobile'
-                            ? "w-[375px] h-[812px] rounded-[40px] border-[8px] border-slate-900 overflow-hidden relative ring-8 ring-slate-200/50 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]"
-                            : "h-full w-full max-w-7xl mx-auto p-4 lg:p-6 bg-transparent shadow-none"
+                            ? "w-[375px] h-[812px] rounded-[40px] overflow-hidden relative bg-white/15 border border-white/40 backdrop-blur-2xl shadow-[0_32px_80px_rgba(15,23,42,0.65)]"
+                            : "h-full w-full max-w-7xl mx-auto p-4 lg:p-6 bg-white shadow-2xl"
                     )}>
-                        {/* Mobile Notch */}
-                        {viewMode === 'mobile' && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-slate-900 rounded-b-2xl z-50 flex justify-center items-center">
-                                <div className="w-16 h-1 bg-slate-800 rounded-full opacity-50" />
-                            </div>
-                        )}
 
                         {/* Content Scroll Area */}
                         <div className={clsx(
-                            "flex-1 overflow-y-auto scrollbar-hide bg-slate-50/30",
-                            viewMode === 'mobile' ? "pt-12 px-0 pb-0" : ""
+                            "flex-1 overflow-y-auto scrollbar-hide",
+                            viewMode === 'mobile'
+                                ? "pt-6 px-0 pb-0 bg-transparent"
+                                : "bg-slate-50/30"
                         )}>
                             <Outlet />
                         </div>
 
                         {/* Mobile Bottom Nav */}
                         {viewMode === 'mobile' && (
-                            <div className="bg-white/80 backdrop-blur-xl border-t border-white/20 px-6 py-4 flex justify-between items-center shrink-0 z-40 pb-8">
+                            <div className="bg-white/25 backdrop-blur-2xl border-t border-white/40 px-6 py-4 flex justify-between items-center shrink-0 z-40 pb-8">
                                 {navItems.map((item) => {
                                     const Icon = item.icon;
                                     const isActive = location.pathname === item.to;

@@ -5,7 +5,7 @@
 .env.production
 
 # Google OAuth & Firebase credentials
-client_secret*.json
+client_secret*.json*
 google-services.json
 firebase-adminsdk*.json
 service-account*.json

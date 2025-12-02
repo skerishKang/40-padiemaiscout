@@ -20,7 +20,7 @@ export default function Chat() {
         {
             id: 'welcome',
             role: 'ai',
-            text: '안녕하세요! PadiemScoutAI입니다. 🕵️‍♂️\n\n복잡한 공고문, PDF만 올려주세요.\nAI가 3초 만에 핵심만 요약하고 우리 기업 지원 가능 여부를 알려드립니다.\n\nPDF 외에도 이미지나 다른 문서도 분석 가능합니다. 더 정확한 분석을 위해서는 [내 프로필]에서 기업 정보를 입력해주세요!',
+            text: '안녕하세요!\nPadiemScoutAI입니다. 🕵️‍♂️\n\n복잡한 공고문,\nPDF만 올려주세요.\n\nAI가 3초 만에 핵심만 요약하고 우리 기업 지원 가능 여부를 알려드립니다.\n\nPDF 외에도 이미지나 다른 문서도 분석 가능합니다. 더 정확한 분석을 위해서는 [내 프로필]에서 기업 정보를 입력해주세요!',
             timestamp: new Date(),
         }
     ]);
@@ -84,8 +84,8 @@ export default function Chat() {
         setIsLoading(true);
 
         try {
-            let prompt = input;
-            let fileData = undefined;
+            let prompt = input.trim();
+            let fileData = undefined as { mimeType: string; data: string } | undefined;
 
             if (attachedFile) {
                 const fileType = attachedFile.file.type;
@@ -99,6 +99,10 @@ export default function Chat() {
                         data: base64
                     };
                 }
+            }
+
+            if (!prompt) {
+                prompt = "첨부한 문서를 분석해서 핵심 내용과 우리 기업의 지원 적합성을 요약해줘.";
             }
 
             const responseText = await geminiService.generateContent(prompt, fileData);
@@ -128,7 +132,7 @@ export default function Chat() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white lg:rounded-2xl lg:shadow-xl lg:border border-slate-200 overflow-hidden relative">
+        <div className="flex flex-col h-full bg-white/40 lg:bg-white lg:rounded-3xl lg:shadow-[0_24px_60px_-24px_rgba(15,23,42,0.65)] lg:border border-white/70 overflow-hidden relative backdrop-blur-xl">
             {/* Chat Header (Optional, mostly for mobile view context) */}
             <div className="bg-white/80 backdrop-blur-md p-4 border-b border-slate-100 flex items-center gap-2 absolute top-0 left-0 right-0 z-10 lg:hidden">
                 <Sparkles size={18} className="text-primary-600" />
@@ -136,7 +140,7 @@ export default function Chat() {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 lg:pt-6 bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 lg:pt-6 bg-slate-50/40">
                 {messages.map((msg) => (
                     <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                         <div className={clsx(
@@ -144,7 +148,7 @@ export default function Chat() {
                             msg.role === 'ai' ? "bg-white" : "bg-white text-slate-600"
                         )}>
                             {msg.role === 'ai' ? (
-                                <img src="/bot_avatar.png" alt="AI" className="w-full h-full object-cover" />
+                                <img src="/logo-bot.png" alt="AI" className="w-full h-full object-cover" />
                             ) : (
                                 <User size={20} />
                             )}
@@ -175,7 +179,7 @@ export default function Chat() {
                 {isLoading && (
                     <div className="flex gap-4 animate-pulse">
                         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-white overflow-hidden">
-                            <img src="/bot_avatar.png" alt="AI" className="w-full h-full object-cover" />
+                            <img src="/logo-bot.png" alt="AI" className="w-full h-full object-cover" />
                         </div>
                         <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl rounded-tl-none border border-white/40 shadow-sm flex items-center gap-3">
                             <Loader2 size={18} className="animate-spin text-primary-600" />
@@ -223,8 +227,8 @@ export default function Chat() {
                                         handleSend();
                                     }
                                 }}
-                                placeholder="궁금한 점을 물어보거나 공고문을 올려주세요..."
-                                className="w-full bg-transparent border-none focus:outline-none resize-none max-h-32 text-sm"
+                                placeholder="메시지를 입력해 주세요..."
+                                className="w-full bg-transparent border-none focus:outline-none resize-none max-h-32 text-sm appearance-none"
                                 rows={1}
                                 style={{ minHeight: '24px' }}
                             />
@@ -232,9 +236,10 @@ export default function Chat() {
                         <button
                             onClick={handleSend}
                             disabled={(!input.trim() && !attachedFile) || isLoading}
-                            className="p-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-primary-200 mb-[2px]"
+                            className="flex items-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-full hover:bg-primary-700 disabled:opacity-40 cursor-pointer disabled:cursor-default transition-all shadow-md shadow-primary-200 mb-[2px]"
                         >
-                            <Send size={20} />
+                            <span className="text-sm font-semibold">전송</span>
+                            <Send size={18} />
                         </button>
                     </div>
                 </div>
