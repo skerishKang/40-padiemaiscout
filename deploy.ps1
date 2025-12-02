@@ -27,4 +27,4 @@ if ($LASTEXITCODE -ne 0) {
 
 # Firebase 배포 (프로젝트 ID: grantscout-af8da)
 Write-Host "Firebase에 배포를 시작합니다..." -ForegroundColor Cyan
-firebase deploy --project grantscout-af8da
+npx firebase-tools deploy --only hosting --project grantscout-af8da --token $Token
