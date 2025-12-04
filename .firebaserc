@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "grantscout-af8da"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

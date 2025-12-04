@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { auth } from '../lib/firebase';
 
@@ -29,6 +29,7 @@ export default function Layout() {
         { icon: LayoutDashboard, label: '공고', to: '/dashboard' },
         { icon: MessageSquare, label: '스카우터', to: '/' },
         { icon: FileText, label: '기업', to: '/profile' },
+        { icon: CreditCard, label: '멤버십', to: '/pricing' },
     ];
 
     return (
@@ -135,7 +136,7 @@ export default function Layout() {
                         <div className="relative w-72 bg-white/90 backdrop-blur-xl h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-200 border-r border-white/20">
                             <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100/50">
                                 <span className="font-bold text-lg text-slate-900">메뉴</span>
-                                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 -mr-2 text-slate-400 hover:text-slate-600">
+                                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 -mr-2 text-slate-400 hover:text-slate-600" aria-label="메뉴 닫기">
                                     <X size={24} />
                                 </button>
                             </div>

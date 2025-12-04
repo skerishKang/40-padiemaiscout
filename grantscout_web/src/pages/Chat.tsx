@@ -1,22 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Send, Paperclip, User, Loader2, FileText, X, Sparkles } from 'lucide-react';
 import { geminiService } from '../services/GeminiService';
+import type { GeminiModelType } from '../services/GeminiService';
 import mammoth from 'mammoth';
 import { clsx } from 'clsx';
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'padiem_prompt_template_v1';
+const MODEL_STORAGE_KEY = 'padiem_model_selection_v1';
 
 const DEFAULT_PROMPT_TEMPLATE = `당신은 국내 기업의 정부지원사업/지자체 공고를 분석해주는 전문 컨설턴트입니다.
 
 목표:
-- 첨부된 공고문/문서의 핵심을 빠르게 요약합니다.
-- 우리 기업이 해당 공고에 지원할 수 있는지 가능성을 평가합니다.
-- 준비해야 할 서류, 핵심 평가 포인트, 주의사항을 제안합니다.
+- 첨부된 공고문/문서의 핵심을 빠르게 요약합니다
+- 우리 기업이 해당 공고에 지원할 수 있는지 가능성을 평가합니다
+- 준비해야 할 서류, 핵심 평가 포인트, 주의사항을 제안합니다
 
 스타일:
-- 짧고 명확하게, 항목별(불릿/번호)로 정리합니다.
-- 어려운 행정/법률 용어는 쉬운 말로 풀어서 설명합니다.
-- 근거가 되는 문장이나 조건이 있으면 같이 언급합니다.
+- 짧고 명확하게, 항목별(불릿/번호)로 정리합니다
+- 어려운 행정/법률 용어는 쉬운 말로 풀어서 설명합니다
+- 근거가 되는 문장이나 조건이 있으면 같이 언급합니다
 
 응답 형식:
 1. 공고 핵심 요약
@@ -40,7 +43,7 @@ export default function Chat() {
         {
             id: 'welcome',
             role: 'ai',
-            text: '안녕하세요!\nPadiemScoutAI입니다. 🕵️‍♂️\n\n복잡한 공고문,\nPDF만 올려주세요.\n\nAI가 3초 만에 핵심만 요약하고 우리 기업 지원 가능 여부를 알려드립니다.\n\nPDF 외에도 이미지나 다른 문서도 분석 가능합니다. 더 정확한 분석을 위해서는 [내 프로필]에서 기업 정보를 입력해주세요!',
+            text: '안녕하세요!\nPadiemScoutAI입니다. 🕵️‍♂️\n\n복잡한 공고문, PDF만 올려주세요.\n\nAI가 3초 만에 핵심만 요약하고 우리 기업 지원 가능 여부를 알려드립니다.\n\nPDF 와드 이미지 등도 분석 가능하고, 더 정확한 분석을 위해서는 [내 프로필]에서 기업 정보를 입력해주세요!',
             timestamp: new Date(),
         }
     ]);
@@ -52,7 +55,16 @@ export default function Chat() {
         const saved = window.localStorage.getItem(PROMPT_TEMPLATE_STORAGE_KEY);
         return saved || DEFAULT_PROMPT_TEMPLATE;
     });
+    const [selectedModel, setSelectedModel] = useState<GeminiModelType>(() => {
+        if (typeof window === 'undefined') return geminiService.getCurrentModel();
+        const saved = window.localStorage.getItem(MODEL_STORAGE_KEY) as GeminiModelType | null;
+        if (saved === "gemini-2.5-flash-lite" || saved === "gemini-2.5-flash" || saved === "gemini-2.5-pro") {
+            return saved;
+        }
+        return geminiService.getCurrentModel();
+    });
     const [isPromptSettingsOpen, setIsPromptSettingsOpen] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,10 +81,23 @@ export default function Chat() {
         window.localStorage.setItem(PROMPT_TEMPLATE_STORAGE_KEY, promptTemplate);
     }, [promptTemplate]);
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        geminiService.setModel(selectedModel);
+        window.localStorage.setItem(MODEL_STORAGE_KEY, selectedModel);
+    }, [selectedModel]);
+
+    const handleDropFiles = (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        const file = files[0];
         setAttachedFile({ file });
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        handleDropFiles(e.target.files);
     };
 
     const clearFile = () => {
@@ -97,6 +122,28 @@ export default function Chat() {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         return result.value;
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+            setIsDragOver(true);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.currentTarget === e.target) {
+            setIsDragOver(false);
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files) {
+            handleDropFiles(e.dataTransfer.files);
+        }
+        setIsDragOver(false);
     };
 
     const handleSend = async () => {
@@ -148,6 +195,14 @@ export default function Chat() {
                 ? `${template}\n\n---\n\n사용자 질문:\n${finalPromptBody}`
                 : finalPromptBody;
 
+            console.log("[Chat] handleSend finalPrompt", {
+                inputSnapshot: input,
+                userPrompt,
+                hasDocText: !!docText,
+                hasFileData: !!fileData,
+                finalPromptPreview: finalPrompt.slice(0, 80),
+            });
+
             const responseText = await geminiService.generateContent(finalPrompt, fileData);
 
             const aiMessage: Message = {
@@ -175,12 +230,29 @@ export default function Chat() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-transparent lg:rounded-3xl lg:shadow-[0_24px_60px_-24px_rgba(15,23,42,0.65)] lg:border border-white/40 overflow-hidden relative">
+        <div
+            className={clsx(
+                "flex flex-col h-full bg-transparent lg:rounded-3xl lg:shadow-[0_24px_60px_-24px_rgba(15,23,42,0.65)] lg:border border-white/40 overflow-hidden relative",
+                isDragOver && "ring-2 ring-primary-300 ring-offset-2 ring-offset-transparent"
+            )}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
             {/* Chat Header (Optional, mostly for mobile view context) */}
             <div className="bg-white/80 backdrop-blur-md p-4 border-b border-slate-100 flex items-center gap-2 absolute top-0 left-0 right-0 z-10 lg:hidden">
                 <Sparkles size={18} className="text-primary-600" />
                 <span className="font-bold text-slate-800">AI 분석 챗봇</span>
             </div>
+
+            {isDragOver && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
+                    <div className="bg-white/90 rounded-2xl px-6 py-4 shadow-xl text-center space-y-2 border border-dashed border-primary-300 pointer-events-none">
+                        <p className="text-sm font-semibold text-slate-900">여기에 파일을 놓으면 분석을 시작합니다</p>
+                        <p className="text-xs text-slate-500">PDF, 워드, 한글, 이미지(jpg, png) 파일을 지원합니다.</p>
+                    </div>
+                </div>
+            )}
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 lg:pt-6 bg-transparent">
@@ -205,14 +277,20 @@ export default function Chat() {
                                     <span className="truncate max-w-[180px] font-medium">{msg.attachment.name}</span>
                                 </div>
                             )}
-                            <div className={clsx(
-                                "p-4 text-sm leading-relaxed whitespace-pre-wrap shadow-sm backdrop-blur-md",
-                                msg.role === 'user'
-                                    ? "bg-blue-600 text-white rounded-2xl rounded-tr-none shadow-primary-500/20"
-                                    : "bg-white/60 text-slate-800 rounded-2xl rounded-tl-none border border-white/40 shadow-slate-200/50"
-                            )}>
-                                {msg.text}
-                            </div>
+                            {msg.text && msg.text.trim().length > 0 && (
+                                <div className={clsx(
+                                    "p-4 text-sm leading-relaxed whitespace-pre-wrap shadow-sm backdrop-blur-md",
+                                    msg.role === 'user'
+                                        ? "bg-blue-600 text-white rounded-2xl rounded-tr-none shadow-primary-500/20"
+                                        : "bg-white/60 text-slate-800 rounded-2xl rounded-tl-none border border-white/40 shadow-slate-200/50"
+                                )}>
+                                    {msg.role === 'ai' ? (
+                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                    ) : (
+                                        msg.text
+                                    )}
+                                </div>
+                            )}
                             <div className={`text-[10px] text-slate-400 font-medium px-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
                                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
@@ -236,10 +314,48 @@ export default function Chat() {
             {/* Input Area */}
             <div className="p-4 bg-white/30 backdrop-blur-xl border-t border-white/20">
                 <div className="max-w-4xl mx-auto">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] text-slate-400 hidden sm:inline">
-                            공고문이나 자료를 첨부하면 더 정확한 분석이 가능합니다.
-                        </span>
+                    <div className="flex items-center justify-between mb-3 gap-2">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <span className="hidden sm:inline text-slate-400">모델 선택</span>
+                            <div className="flex rounded-full bg-slate-100/80 p-0.5 border border-slate-200/60">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedModel("gemini-2.5-flash-lite")}
+                                    className={clsx(
+                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                                        selectedModel === "gemini-2.5-flash-lite"
+                                            ? "bg-white text-slate-900 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
+                                    )}
+                                >
+                                    Lite
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedModel("gemini-2.5-flash")}
+                                    className={clsx(
+                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                                        selectedModel === "gemini-2.5-flash"
+                                            ? "bg-white text-slate-900 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
+                                    )}
+                                >
+                                    Flash
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedModel("gemini-2.5-pro")}
+                                    className={clsx(
+                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                                        selectedModel === "gemini-2.5-pro"
+                                            ? "bg-white text-slate-900 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
+                                    )}
+                                >
+                                    Pro
+                                </button>
+                            </div>
+                        </div>
                         <button
                             type="button"
                             onClick={() => setIsPromptSettingsOpen(true)}
@@ -261,8 +377,14 @@ export default function Chat() {
                     <div className="flex gap-2 items-end">
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="p-3 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors mb-[2px]"
+                            className={clsx(
+                                "p-3 rounded-xl mb-[2px] transition-colors cursor-pointer",
+                                attachedFile
+                                    ? "text-primary-700 bg-primary-50 border border-primary-200 shadow-sm"
+                                    : "text-slate-400 hover:text-primary-600 hover:bg-primary-50"
+                            )}
                             title="파일 첨부"
+                            aria-label="파일 첨부"
                         >
                             <Paperclip size={22} />
                         </button>
@@ -272,6 +394,7 @@ export default function Chat() {
                             onChange={handleFileSelect}
                             className="hidden"
                             accept=".pdf,.doc,.docx,.hwp,.hwpx,.jpg,.jpeg,.png"
+                            title="파일 첨부"
                         />
                         <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-300 transition-all">
                             <textarea
@@ -283,10 +406,13 @@ export default function Chat() {
                                         handleSend();
                                     }
                                 }}
-                                placeholder="메시지를 입력해 주세요..."
-                                className="w-full bg-transparent border-none focus:outline-none resize-none max-h-32 text-sm appearance-none"
+                                placeholder={
+                                    attachedFile
+                                        ? "추가로 궁금한 점이 있으면 입력해 주세요. 입력하지 않으면 첨부 문서를 기반으로 요약과 우리 기업의 지원 적합성 분석만 진행합니다."
+                                        : "메시지를 입력해 주세요..."
+                                }
+                                className="w-full bg-transparent border-none focus:outline-none resize-none max-h-32 text-sm appearance-none min-h-[24px]"
                                 rows={1}
-                                style={{ minHeight: '24px' }}
                             />
                         </div>
                         <button
@@ -298,6 +424,14 @@ export default function Chat() {
                             <Send size={18} />
                         </button>
                     </div>
+                    {attachedFile && !input.trim() && (
+                        <div className="mt-2 text-[11px] text-slate-500 flex items-center gap-1">
+                            <span className="inline-block w-1 h-1 rounded-full bg-primary-400" />
+                            <span>
+                                지금 상태에서 바로 전송하면 첨부한 문서(PDF, 워드, 한글, 이미지 등)를 기반으로 핵심 요약과 우리 기업 지원 적합성을 분석합니다.
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
             {isPromptSettingsOpen && (
@@ -324,6 +458,7 @@ export default function Chat() {
                             value={promptTemplate}
                             onChange={(e) => setPromptTemplate(e.target.value)}
                             className="w-full min-h-[180px] text-sm rounded-xl border border-slate-200 p-3 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 resize-vertical"
+                            aria-label="프롬프트 템플릿 편집"
                         />
 
                         <div className="flex items-center justify-between gap-2 pt-1">

@@ -20,7 +20,10 @@
     "rules": "storage.rules"
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "emulators": {
     "functions": {
