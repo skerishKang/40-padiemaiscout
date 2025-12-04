@@ -291,20 +291,75 @@ export default function Profile() {
                     </div>
                 </div>
 
-                <div className="pt-4">
+                <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
                     <button
                         onClick={handleSave}
                         disabled={loading}
-                        className="w-full py-3 bg-primary-600 text-white font-bold rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
                     >
                         {loading ? '저장 중...' : <><Save size={20} /> 저장하기</>}
                     </button>
-                    {message && (
-                        <p className={`mt-3 text-center text-sm ${message.includes('실패') ? 'text-red-500' : 'text-green-600'}`}>
-                            {message}
-                        </p>
-                    )}
+
+                    <button
+                        onClick={() => {
+                            if (window.confirm('입력한 내용을 모두 초기화하시겠습니까?')) {
+                                setFormData({
+                                    industry: '',
+                                    stage: '',
+                                    revenue: '',
+                                    employees: '',
+                                    location: '',
+                                    certifications: [],
+                                    role: formData.role, // Keep role
+                                    scrapeCount: formData.scrapeCount // Keep usage stats
+                                });
+                                setMessage('초기화되었습니다. (저장하려면 저장 버튼을 누르세요)');
+                            }
+                        }}
+                        className="px-6 py-3 bg-white text-slate-600 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                    >
+                        초기화
+                    </button>
+
+                    <button
+                        onClick={async () => {
+                            if (window.confirm('정말로 기업 정보를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                                setLoading(true);
+                                try {
+                                    if (user) {
+                                        // Reset to empty state in DB
+                                        const emptyData = {
+                                            industry: '',
+                                            stage: '',
+                                            revenue: '',
+                                            employees: '',
+                                            location: '',
+                                            certifications: [],
+                                            role: 'free',
+                                            scrapeCount: 0
+                                        };
+                                        await setDoc(doc(db, 'users', user.uid), emptyData);
+                                        setFormData(emptyData);
+                                        setMessage('기업 정보가 삭제되었습니다.');
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                    setMessage('삭제 실패');
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                        className="px-6 py-3 bg-red-50 text-red-600 font-bold rounded-xl border border-red-100 hover:bg-red-100 transition-colors"
+                    >
+                        삭제
+                    </button>
                 </div>
+                {message && (
+                    <p className={`mt-3 text-center text-sm font-medium ${message.includes('실패') || message.includes('삭제') ? 'text-red-500' : 'text-blue-600'}`}>
+                        {message}
+                    </p>
+                )}
             </div>
         </div>
     );
