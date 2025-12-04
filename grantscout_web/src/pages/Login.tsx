@@ -57,7 +57,7 @@ export default function Login() {
                 {/* Google Login Button */}
                 <button
                     onClick={handleGoogleLogin}
-                    className="w-full py-3 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 mb-6 shadow-sm"
+                    className="w-full py-3 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 mb-6 shadow-sm cursor-pointer"
                 >
                     <img
                         src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
@@ -111,7 +111,7 @@ export default function Login() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-primary-600 text-white font-bold rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-primary-600 text-white font-bold rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                         {loading ? (
                             '처리 중...'
@@ -126,7 +126,7 @@ export default function Login() {
                 <div className="mt-6 text-center">
                     <button
                         onClick={() => setIsSignUp(!isSignUp)}
-                        className="text-sm text-primary-600 hover:underline"
+                        className="text-sm text-primary-600 hover:underline cursor-pointer"
                     >
                         {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
                     </button>
