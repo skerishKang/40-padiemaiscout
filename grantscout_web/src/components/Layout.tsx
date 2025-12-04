@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard, ShieldAlert } from 'lucide-react';
 import { clsx } from 'clsx';
 import { auth } from '../lib/firebase';
 
@@ -31,6 +31,18 @@ export default function Layout() {
         { icon: FileText, label: '기업', to: '/profile' },
         { icon: CreditCard, label: '멤버십', to: '/pricing' },
     ];
+
+    // Admin Check
+    const isAdmin = auth.currentUser?.email && [
+        'padiemipu@gmail.com',
+        'paidemipu@gmail.com', // Typo fallback
+        'limone@example.com',
+        'admin@mdreader.com'
+    ].includes(auth.currentUser.email);
+
+    if (isAdmin) {
+        navItems.push({ icon: ShieldAlert, label: '관리자', to: '/admin' });
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">

@@ -7,6 +7,8 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Pricing from './pages/Pricing';
 
+import Admin from './pages/Admin';
+
 function App() {
   return (
     <BrowserRouter>
@@ -17,6 +19,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
           <Route path="pricing" element={<Pricing />} />
+          <Route path="admin" element={<Admin />} />
         </Route>
       </Routes>
     </BrowserRouter>
