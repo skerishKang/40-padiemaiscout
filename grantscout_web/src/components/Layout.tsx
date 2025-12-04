@@ -1,30 +1,23 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard, ShieldAlert } from 'lucide-react';
-import { clsx } from 'clsx';
-import { auth } from '../lib/firebase';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 
-const SidebarItem = ({ icon: Icon, label, to, active, onClick }: { icon: React.ElementType, label: string, to: string, active: boolean, onClick?: () => void }) => (
-    <Link
-        to={to}
-        onClick={onClick}
-        className={clsx(
-            "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group border-l-4",
-            active
-                ? "bg-primary-50 text-primary-700 shadow-sm border-primary-500"
-                : "text-slate-600 hover:bg-slate-100 hover:text-primary-600 border-transparent"
-        )}
-    >
-        <Icon size={20} className={clsx("transition-transform group-hover:scale-110", active ? "text-primary-600" : "text-slate-400 group-hover:text-primary-600")} />
-        <span className="font-semibold">{label}</span>
-    </Link>
-);
+// ... (SidebarItem remains unchanged)
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+    const [user, setUser] = useState<User | null>(null);
     const location = useLocation();
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+        });
+        return () => unsubscribe();
+    }, []);
 
     const navItems = [
         { icon: LayoutDashboard, label: '공고', to: '/' },
@@ -34,12 +27,12 @@ export default function Layout() {
     ];
 
     // Admin Check
-    const isAdmin = auth.currentUser?.email && [
+    const isAdmin = user?.email && [
         'padiemipu@gmail.com',
         'paidemipu@gmail.com', // Typo fallback
         'limone@example.com',
         'admin@mdreader.com'
-    ].includes(auth.currentUser.email);
+    ].includes(user.email);
 
     if (isAdmin) {
         navItems.push({ icon: ShieldAlert, label: '관리자', to: '/admin' });
@@ -97,7 +90,7 @@ export default function Layout() {
                     <div className="h-6 w-px bg-slate-200 hidden lg:block" />
 
                     {/* User Profile / Login */}
-                    {auth.currentUser ? (
+                    {user ? (
                         <div className="relative">
                             <button
                                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
@@ -107,7 +100,7 @@ export default function Layout() {
                                     <UserCircle size={20} />
                                 </div>
                                 <span className="text-sm font-medium text-slate-700 hidden sm:block">
-                                    {auth.currentUser.email?.split('@')[0]}
+                                    {user.email?.split('@')[0]}
                                 </span>
                             </button>
 
@@ -121,7 +114,7 @@ export default function Layout() {
                                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                         <div className="px-4 py-3 border-b border-slate-50">
                                             <p className="text-sm font-bold text-slate-900">내 계정</p>
-                                            <p className="text-xs text-slate-500 truncate">{auth.currentUser.email}</p>
+                                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
                                         </div>
                                         <Link
                                             to="/profile"
@@ -214,7 +207,7 @@ export default function Layout() {
                                     />
                                 ))}
                             </nav>
-                            {auth.currentUser && (
+                            {user && (
                                 <div className="p-4 border-t border-slate-100/50">
                                     <button onClick={() => auth.signOut()} className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-xl w-full transition-colors cursor-pointer">
                                         <LogOut size={20} />
