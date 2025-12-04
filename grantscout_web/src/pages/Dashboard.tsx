@@ -90,16 +90,16 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-4 h-64">
                 <button
                     onClick={() => setViewMode('newest')}
-                    className={`relative group overflow-hidden rounded-3xl bg-white border shadow-xl p-6 flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 ${viewMode === 'newest' ? 'border-blue-200 ring-2 ring-blue-100' : 'border-white/40 shadow-slate-200/50'}`}
+                    className={`relative group overflow-hidden rounded-3xl bg-white border shadow-xl p-6 flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 cursor-pointer z-10 ${viewMode === 'newest' ? 'border-blue-200 ring-2 ring-blue-100' : 'border-white/40 shadow-slate-200/50'}`}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative z-10 text-left">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <div className="relative z-10 text-left pointer-events-none">
                         <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-4 shadow-inner">
                             <TrendingUp size={24} />
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 leading-tight">최신 공고<br />확인하기</h3>
                     </div>
-                    <div className="relative z-10 flex items-center gap-2 text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">
+                    <div className="relative z-10 flex items-center gap-2 text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors pointer-events-none">
                         <span>전체 보기</span>
                         <ArrowRight size={16} />
                     </div>
@@ -107,16 +107,16 @@ export default function Dashboard() {
 
                 <button
                     onClick={() => setViewMode('closing-soon')}
-                    className={`relative group overflow-hidden rounded-3xl bg-white border shadow-xl p-6 flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 ${viewMode === 'closing-soon' ? 'border-purple-200 ring-2 ring-purple-100' : 'border-white/40 shadow-slate-200/50'}`}
+                    className={`relative group overflow-hidden rounded-3xl bg-white border shadow-xl p-6 flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 cursor-pointer z-10 ${viewMode === 'closing-soon' ? 'border-purple-200 ring-2 ring-purple-100' : 'border-white/40 shadow-slate-200/50'}`}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative z-10 text-left">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <div className="relative z-10 text-left pointer-events-none">
                         <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 mb-4 shadow-inner">
                             <CheckCircle size={24} />
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 leading-tight">마감 임박<br />공고 보기</h3>
                     </div>
-                    <div className="relative z-10 flex items-center gap-2 text-sm font-medium text-slate-500 group-hover:text-purple-600 transition-colors">
+                    <div className="relative z-10 flex items-center gap-2 text-sm font-medium text-slate-500 group-hover:text-purple-600 transition-colors pointer-events-none">
                         <span>목록 보기</span>
                         <ArrowRight size={16} />
                     </div>
