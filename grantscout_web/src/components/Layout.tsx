@@ -1,9 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard, ShieldAlert } from 'lucide-react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import clsx from 'clsx';
 
-// ... (SidebarItem remains unchanged)
+interface SidebarItemProps {
+    icon: React.ComponentType<{ size: number; className?: string }>;
+    label: string;
+    to: string;
+    active?: boolean;
+    onClick?: () => void;
+}
+
+function SidebarItem({ icon: Icon, label, to, active, onClick }: SidebarItemProps) {
+    return (
+        <Link
+            to={to}
+            onClick={onClick}
+            className={clsx(
+                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer",
+                active
+                    ? "bg-primary-100 text-primary-700 shadow-inner"
+                    : "text-slate-600 hover:bg-slate-100/50 hover:text-slate-900"
+            )}
+        >
+            <Icon size={20} className={clsx("transition-transform duration-300", active && "scale-110")} />
+            <span>{label}</span>
+        </Link>
+    );
+}
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
