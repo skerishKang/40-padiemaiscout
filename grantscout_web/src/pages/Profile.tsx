@@ -17,6 +17,7 @@ export default function Profile() {
         location: '',
         certifications: [] as string[],
         role: 'free', // Default role
+        scrapeCount: 0,
     });
 
     useEffect(() => {
@@ -291,24 +292,60 @@ export default function Profile() {
                         </p>
                     )}
                     <div className="mt-8 pt-8 border-t border-slate-200">
-                        <h3 className="text-lg font-bold text-slate-900 mb-4">관리자 기능</h3>
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const scrapeFn = httpsCallable(functions, 'scrapeBizinfo');
-                                    const result = await scrapeFn();
-                                    const data = result.data as { message: string };
-                                    alert(data.message);
-                                } catch (error: unknown) {
-                                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                                    alert('스크래핑 실패: ' + errorMessage);
-                                }
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
-                        >
-                            <Download size={18} />
-                            Bizinfo 공고 가져오기 (Agent)
-                        </button>
+                        <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <Download size={20} className="text-blue-600" />
+                            공고 데이터 동기화
+                        </h3>
+                        <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                            <p className="text-sm text-blue-800 mb-4">
+                                기업마당(Bizinfo)의 최신 지원사업 공고를 가져옵니다.<br />
+                                <span className="text-xs text-blue-600 mt-1 block">
+                                    * Free 플랜: 하루 3회 제한 / Pro 플랜: 무제한
+                                </span>
+                            </p>
+
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-700">
+                                    오늘 남은 횟수: {formData.role === 'pro' ? '무제한' : `${3 - (formData.scrapeCount || 0)}회`}
+                                </span>
+                                <button
+                                    onClick={async () => {
+                                        // Check Limits
+                                        if (formData.role !== 'pro' && (formData.scrapeCount || 0) >= 3) {
+                                            alert('무료 플랜의 일일 스크래핑 횟수(3회)를 모두 사용했습니다.\nPro 플랜으로 업그레이드하여 무제한으로 이용해보세요!');
+                                            return;
+                                        }
+
+                                        setLoading(true);
+                                        try {
+                                            const scrapeFn = httpsCallable(functions, 'scrapeBizinfo');
+                                            const result = await scrapeFn();
+                                            const data = result.data as { message: string };
+
+                                            // Update usage count
+                                            if (auth.currentUser) {
+                                                const newCount = (formData.scrapeCount || 0) + 1;
+                                                await setDoc(doc(db, 'users', auth.currentUser.uid), {
+                                                    scrapeCount: newCount
+                                                }, { merge: true });
+                                                setFormData(prev => ({ ...prev, scrapeCount: newCount }));
+                                            }
+
+                                            alert(data.message);
+                                        } catch (error: unknown) {
+                                            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                                            alert('스크래핑 실패: ' + errorMessage);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
+                                >
+                                    {loading ? '동기화 중...' : '지금 동기화하기'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

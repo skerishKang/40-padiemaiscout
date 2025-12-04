@@ -164,7 +164,7 @@ export default function Layout() {
                             </nav>
                             {auth.currentUser && (
                                 <div className="p-4 border-t border-slate-100/50">
-                                    <button onClick={() => auth.signOut()} className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-xl w-full transition-colors">
+                                    <button onClick={() => auth.signOut()} className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-xl w-full transition-colors cursor-pointer">
                                         <LogOut size={20} />
                                         <span className="font-medium">로그아웃</span>
                                     </button>
