@@ -57,7 +57,8 @@ export default function Profile() {
                 employees: '',
                 location: '',
                 certifications: [],
-                role: 'free'
+                role: 'free',
+                scrapeCount: 0
             });
             setMessage('로그아웃 되었습니다.');
         } catch (error) {
