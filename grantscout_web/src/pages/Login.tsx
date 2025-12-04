@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus, AlertCircle } from 'lucide-react';
 
@@ -11,6 +11,16 @@ export default function Login() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+
+    const handleGoogleLogin = async () => {
+        try {
+            await signInWithPopup(auth, googleProvider);
+            navigate('/');
+        } catch (err: any) {
+            console.error(err);
+            setError('Google 로그인에 실패했습니다.');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,8 +50,30 @@ export default function Login() {
                         {isSignUp ? '테스트 계정 생성' : '로그인'}
                     </h1>
                     <p className="text-slate-500 mt-2">
-                        {isSignUp ? '새로운 테스트용 계정을 만듭니다.' : '이메일로 로그인하세요.'}
+                        {isSignUp ? '새로운 테스트용 계정을 만듭니다.' : '계정에 로그인하세요.'}
                     </p>
+                </div>
+
+                {/* Google Login Button */}
+                <button
+                    onClick={handleGoogleLogin}
+                    className="w-full py-3 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 mb-6 shadow-sm"
+                >
+                    <img
+                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                        className="w-5 h-5"
+                        alt="Google"
+                    />
+                    Google로 계속하기
+                </button>
+
+                <div className="relative mb-6">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-slate-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                        <span className="px-2 bg-white text-slate-500">또는 이메일로 계속하기</span>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,7 +118,7 @@ export default function Login() {
                         ) : isSignUp ? (
                             <><UserPlus size={20} /> 계정 생성</>
                         ) : (
-                            <><LogIn size={20} /> 로그인</>
+                            <><LogIn size={20} /> 이메일로 로그인</>
                         )}
                     </button>
                 </form>
