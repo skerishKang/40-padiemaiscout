@@ -163,7 +163,7 @@ export default function Dashboard() {
 
                     <div className="flex gap-2">
                         {/* Simple Filter Dropdown Mockup */}
-                        <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
+                        <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50" title="필터 옵션">
                             <Filter size={18} />
                         </button>
                     </div>
