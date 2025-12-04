@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, CheckCircle, Filter, Search } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -27,9 +27,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
 
-    // Filters
-    const [selectedRegion, setSelectedRegion] = useState('All');
-    const [selectedIndustry, setSelectedIndustry] = useState('All');
+
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -89,13 +87,7 @@ export default function Dashboard() {
     };
 
     // Filter Logic
-    const filteredGrants = allGrants.filter(grant => {
-        // Apply Region Filter (Mock)
-        if (selectedRegion !== 'All') {
-            // In real data, check grant.location or similar
-        }
-        return true;
-    }).sort((a, b) => {
+    const filteredGrants = allGrants.sort((a, b) => {
         if (viewMode === 'newest') {
             // Sort by analyzedAt (desc)
             return (b.analyzedAt?.toMillis() || 0) - (a.analyzedAt?.toMillis() || 0);
