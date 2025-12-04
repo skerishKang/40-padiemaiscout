@@ -1,4 +1,4 @@
-import { Calendar, Building2, MapPin, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Building2, MapPin, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 interface Grant {
     id: string;
