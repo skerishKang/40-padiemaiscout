@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Building2, Calendar, DollarSign, Users, MapPin, Award } from 'lucide-react';
-import { auth, db } from '../lib/firebase';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { Building2, Calendar, DollarSign, Users, MapPin, Award, Download, Save } from 'lucide-react';
+import { auth, db, googleProvider, functions } from '../lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 
 export default function Profile() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [user, setUser] = useState<FirebaseUser | null>(null);
     const [formData, setFormData] = useState({
         industry: '',
         stage: '',
@@ -14,24 +16,53 @@ export default function Profile() {
         employees: '',
         location: '',
         certifications: [] as string[],
+        role: 'free', // Default role
     });
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            setUser(currentUser);
+            if (currentUser) {
                 // Load existing profile
-                const docRef = doc(db, 'users', user.uid);
+                const docRef = doc(db, 'users', currentUser.uid);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    setFormData(docSnap.data() as any);
+                    setFormData(prev => ({ ...prev, ...docSnap.data() }));
                 }
             } else {
                 // Sign in anonymously if not logged in
-                signInAnonymously(auth).catch(console.error);
+                // signInAnonymously(auth).catch(console.error); // Optional: Disable auto-anonymous if we want forced login
             }
         });
         return () => unsubscribe();
     }, []);
+
+    const handleGoogleLogin = async () => {
+        try {
+            await signInWithPopup(auth, googleProvider);
+        } catch (error) {
+            console.error("Login failed:", error);
+            setMessage('로그인에 실패했습니다.');
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            setFormData({
+                industry: '',
+                stage: '',
+                revenue: '',
+                employees: '',
+                location: '',
+                certifications: [],
+                role: 'free'
+            });
+            setMessage('로그아웃 되었습니다.');
+        } catch (error) {
+            console.error("Logout failed:", error);
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -68,15 +99,55 @@ export default function Profile() {
 
     return (
         <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:p-8">
-            <div className="mb-8">
-                <h2 className="text-2xl font-bold text-slate-900">기업 프로필</h2>
-                <p className="text-slate-500 mt-1">정확한 정보를 입력할수록 매칭 정확도가 올라갑니다.</p>
+            <div className="mb-8 flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900">기업 프로필</h2>
+                    <p className="text-slate-500 mt-1">정확한 정보를 입력할수록 매칭 정확도가 올라갑니다.</p>
+                </div>
+                <div className="text-right">
+                    {user && !user.isAnonymous ? (
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-2">
+                                {user.photoURL && (
+                                    <img
+                                        src={user.photoURL}
+                                        alt="Profile"
+                                        className="w-8 h-8 rounded-full"
+                                    />
+                                )}
+                                <span className="text-sm font-medium text-slate-700">{user.displayName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className={`px-2 py-1 text-xs font-bold rounded ${formData.role === 'pro' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    {formData.role === 'pro' ? 'PRO Plan' : 'Free Plan'}
+                                </span>
+                                <button onClick={handleLogout} className="text-xs text-red-500 hover:underline">로그아웃</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleGoogleLogin}
+                            className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 text-sm font-medium hover:bg-slate-50 flex items-center gap-2"
+                        >
+                            <img
+                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                                className="w-4 h-4"
+                                alt="Google"
+                            />
+                            Google로 로그인
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="space-y-6">
                 {/* Industry */}
                 <div>
-                    <label htmlFor="industry" className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                    <label
+                        htmlFor="industry"
+                        className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+                    >
                         <Building2 size={16} /> 업종
                     </label>
                     <select
@@ -97,7 +168,10 @@ export default function Profile() {
 
                 {/* Stage */}
                 <div>
-                    <label htmlFor="stage" className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                    <label
+                        htmlFor="stage"
+                        className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+                    >
                         <Calendar size={16} /> 업력 (창업일 기준)
                     </label>
                     <select
@@ -117,7 +191,10 @@ export default function Profile() {
 
                 {/* Revenue */}
                 <div>
-                    <label htmlFor="revenue" className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                    <label
+                        htmlFor="revenue"
+                        className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+                    >
                         <DollarSign size={16} /> 연 매출액
                     </label>
                     <select
@@ -137,7 +214,10 @@ export default function Profile() {
 
                 {/* Employees */}
                 <div>
-                    <label htmlFor="employees" className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                    <label
+                        htmlFor="employees"
+                        className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+                    >
                         <Users size={16} /> 직원 수
                     </label>
                     <select
@@ -157,7 +237,10 @@ export default function Profile() {
 
                 {/* Location */}
                 <div>
-                    <label htmlFor="location" className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                    <label
+                        htmlFor="location"
+                        className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+                    >
                         <MapPin size={16} /> 소재지
                     </label>
                     <select
@@ -207,6 +290,26 @@ export default function Profile() {
                             {message}
                         </p>
                     )}
+                    <div className="mt-8 pt-8 border-t border-slate-200">
+                        <h3 className="text-lg font-bold text-slate-900 mb-4">관리자 기능</h3>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const scrapeFn = httpsCallable(functions, 'scrapeBizinfo');
+                                    const result = await scrapeFn();
+                                    const data = result.data as { message: string };
+                                    alert(data.message);
+                                } catch (error: unknown) {
+                                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                                    alert('스크래핑 실패: ' + errorMessage);
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
+                        >
+                            <Download size={18} />
+                            Bizinfo 공고 가져오기 (Agent)
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

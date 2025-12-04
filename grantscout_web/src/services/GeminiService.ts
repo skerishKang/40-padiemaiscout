@@ -1,7 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../lib/firebase';
 
-export type GeminiModelType = "gemini-2.5-flash-lite" | "gemini-1.5-flash" | "gemini-1.5-pro" | "gemini-1.5-flash-8b";
+export type GeminiModelType = "gemini-2.5-flash-lite" | "gemini-2.5-flash" | "gemini-2.5-pro";
 
 class GeminiService {
     private currentModel: GeminiModelType = "gemini-2.5-flash-lite";
@@ -16,13 +16,15 @@ class GeminiService {
 
     public async generateContent(prompt: string, fileData?: { mimeType: string; data: string }): Promise<string> {
         try {
+            console.log("[GeminiService] generateContent payload", {
+                hasPrompt: !!prompt,
+                promptPreview: prompt ? String(prompt).slice(0, 80) : "",
+                hasFileData: !!fileData,
+                model: this.currentModel,
+            });
+
             // Specify the region where the function is deployed
             const chatWithGemini = httpsCallable(functions, 'chatWithGemini', { timeout: 60000 });
-            // Note: If functions instance isn't region-specific, we might need to get a region-specific instance.
-            // But usually httpsCallable handles it if we pass the right instance or options?
-            // Actually, the firebase.ts exports 'functions' which is getFunctions(app). 
-            // By default getFunctions(app) uses us-central1.
-            // We need to update firebase.ts to use getFunctions(app, 'asia-northeast3').
             const result = await chatWithGemini({
                 prompt,
                 fileData,

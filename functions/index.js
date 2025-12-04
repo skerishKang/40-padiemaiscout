@@ -14,7 +14,6 @@ const { getStorage } = require("firebase-admin/storage");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { FieldValue: firebaseFieldValue } = require("firebase-admin/firestore");
 // Gemini API SDK 추가
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 // .env 파일 지원을 위한 dotenv 적용 (로컬 개발용)
@@ -449,19 +448,68 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
 });
 
 // --- Chat with Gemini Cloud Function ---
-exports.chatWithGemini = functions.https.onCall(async (data, context) => {
-  const { prompt, fileData, model: preferredModel } = data || {};
+// Firebase Functions v1/v2 onCall 모두 지원할 수 있도록, 첫 번째 인자가
+// { data, rawRequest, acceptsStreaming } 형태인지 확인한 뒤 payload를 분리한다.
+exports.chatWithGemini = functions.https.onCall(async (request, context) => {
+  const payload = request && typeof request === "object" && "data" in request
+    ? request.data
+    : request;
 
-  if (!prompt) {
-    return { status: "error", message: "Prompt is required" };
+  const { prompt, fileData, model: preferredModel } = payload || {};
+  let finalPrompt = prompt;
+
+  // 문자열이 아닐 수도 있는 입력에 방어적으로 대응
+  if (typeof finalPrompt !== "string") {
+    finalPrompt = finalPrompt ? String(finalPrompt) : "";
   }
 
+  const hasTextPrompt = finalPrompt.trim().length > 0;
+  const hasFileData = !!fileData;
+
+  // 백엔드 방어로직: 프롬프트가 비어 있고 파일만 있는 경우 기본 분석 프롬프트 사용
+  if (!hasTextPrompt && hasFileData) {
+    finalPrompt = "첨부한 문서를 분석해서 핵심 내용과 우리 기업의 지원 적합성을 요약해줘.";
+  }
+
+  const effectiveHasTextPrompt = finalPrompt.trim().length > 0;
+
+  // 프롬프트와 파일이 모두 없는 경우에는 에러 대신 안내 메시지를 반환
+  if (!effectiveHasTextPrompt && !hasFileData) {
+    console.error("[chatWithGemini] Missing prompt and fileData in request", {
+      rawRequestShape: request && typeof request === "object" ? {
+        hasDataField: Object.prototype.hasOwnProperty.call(request, "data"),
+        keys: Object.keys(request || {}),
+      } : null,
+      payload,
+      typeofPrompt: typeof prompt,
+      finalPromptType: typeof finalPrompt,
+      finalPromptLength: finalPrompt ? finalPrompt.length : 0,
+    });
+    return {
+      status: "success",
+      text: "메시지가 비어 있습니다. 아래 입력창에 질문이나 공고문 관련 내용을 적은 후 다시 전송해 주세요.",
+      model: null,
+    };
+  }
+
+  console.log("[chatWithGemini] Incoming request", {
+    hasTextPrompt: effectiveHasTextPrompt,
+    hasFileData,
+    preferredModel,
+    promptLength: finalPrompt.length,
+    promptPreview: finalPrompt ? String(finalPrompt).slice(0, 50) : "",
+  });
+
   const apiKeys = getApiKeysFromEnv();
+  console.log("[chatWithGemini] apiKey count:", apiKeys.length);
+
   if (apiKeys.length === 0) {
+    console.error("[chatWithGemini] No Gemini API keys configured in environment");
     return { status: "error", message: "No Gemini API keys configured" };
   }
 
   const allowedModels = getAllowedModelsFromEnv();
+  console.log("[chatWithGemini] allowedModels:", allowedModels);
 
   // 선호 모델 + 허용 모델을 합쳐서 시도 순서를 만든다.
   const candidateModels = [];
@@ -474,15 +522,26 @@ exports.chatWithGemini = functions.https.onCall(async (data, context) => {
     }
   }
 
+  console.log("[chatWithGemini] candidateModels (order):", candidateModels);
+
   let lastError = null;
   for (const apiKey of apiKeys) {
     const genAI = new GoogleGenerativeAI(apiKey);
+    const apiKeyShort = apiKey.substring(0, 5);
 
     for (const modelName of candidateModels) {
       try {
+        console.log("[chatWithGemini] Trying model with key", {
+          apiKey: apiKeyShort + "...",
+          modelName,
+        });
+
         const model = genAI.getGenerativeModel({ model: modelName });
 
-        const parts = [{ text: prompt }];
+        const parts = [];
+        if (finalPrompt && finalPrompt.trim().length > 0) {
+          parts.push({ text: finalPrompt });
+        }
         if (fileData) {
           parts.push({
             inlineData: {
@@ -492,15 +551,32 @@ exports.chatWithGemini = functions.https.onCall(async (data, context) => {
           });
         }
 
-        const result = await model.generateContent(parts);
+        const request = {
+          contents: [
+            {
+              role: "user",
+              parts,
+            },
+          ],
+        };
+
+        const result = await model.generateContent(request);
         const response = await result.response;
         const text = response.text();
+
+        console.log("[chatWithGemini] Success", {
+          model: modelName,
+          textPreview: text ? text.slice(0, 100) : "",
+        });
 
         return { status: "success", text, model: modelName };
       } catch (err) {
         lastError = err;
         const msg = (err && err.message) ? err.message : String(err || "");
-        console.error(`Gemini API error with key ${apiKey.substring(0, 5)}..., model ${modelName}:`, err);
+        console.error(
+          `[chatWithGemini] Gemini API error with key ${apiKeyShort}..., model ${modelName}:`,
+          msg,
+        );
 
         const lower = msg.toLowerCase();
         const isQuotaOrPermissionIssue =
@@ -513,17 +589,163 @@ exports.chatWithGemini = functions.https.onCall(async (data, context) => {
           lower.includes("model");
 
         if (!isQuotaOrPermissionIssue) {
+          console.error("[chatWithGemini] Non-quota/permission/model error, moving to next API key");
           // 모델 자체 문제가 아닌 다른 오류라면 이 키에서는 더 이상 시도하지 않고 다음 키로 이동
           break;
         }
         // quota/권한/모델 관련 이슈면 다음 모델로 폴백
+        console.log("[chatWithGemini] Treating error as quota/permission/model issue, trying next model");
       }
     }
   }
 
+  console.error("[chatWithGemini] All models and API keys failed", {
+    lastError: lastError ? (lastError.message || String(lastError)) : null,
+  });
+
   return {
     status: "error",
-    message: "All API keys failed or exhausted",
-    error: lastError ? lastError.toString() : "Unknown error"
+    message: (lastError && lastError.message) ? lastError.message : "All API keys failed or exhausted",
+    error: lastError ? lastError.toString() : "Unknown error",
+    debug: {
+      preferredModel: preferredModel || null,
+      candidateModels,
+      apiKeyCount: apiKeys.length,
+    },
   };
+});
+
+// --- Toss Payments Confirmation ---
+const TOSS_SECRET_KEY = "REDACTED_TOSS_SECRET_KEY"; // Test Secret Key
+const axios = require("axios");
+
+exports.confirmPayment = functions.https.onCall(async (request, context) => {
+  // 1. 인증 확인
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "로그인이 필요합니다."
+    );
+  }
+
+  const data = request.data || request;
+  const { paymentKey, orderId, amount } = data;
+  const userId = context.auth.uid;
+
+  try {
+    // 2. 토스페이먼츠에 결제 승인 요청
+    const widgetSecretKey = TOSS_SECRET_KEY;
+    const encryptedSecretKey = Buffer.from(widgetSecretKey + ":").toString("base64");
+
+    const response = await axios.post(
+      "https://api.tosspayments.com/v1/payments/confirm",
+      {
+        paymentKey,
+        orderId,
+        amount,
+      },
+      {
+        headers: {
+          "Authorization": `Basic ${encryptedSecretKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    // 3. 결제 성공 시 Firestore 유저 등급 업데이트
+    if (response.status === 200) {
+      await db.collection("users").doc(userId).update({
+        role: "pro",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // 결제 기록 저장
+      await db.collection("payments").add({
+        userId,
+        orderId,
+        amount,
+        paymentKey,
+        status: "DONE",
+        createdAt: FieldValue.serverTimestamp(),
+        provider: "toss",
+      });
+
+      return { success: true, message: "Pro 등급으로 업그레이드되었습니다." };
+    }
+  } catch (error) {
+    console.error("Payment Confirmation Error:", error.response ? error.response.data : error);
+
+    // 이미 승인된 결제인 경우
+    if (error.response && error.response.data && error.response.data.code === "ALREADY_PROCESSED_PAYMENT") {
+      await db.collection("users").doc(userId).update({
+        role: "pro",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return { success: true, message: "이미 처리된 결제입니다. 등급이 갱신되었습니다." };
+    }
+
+    throw new functions.https.HttpsError(
+      "internal",
+      "결제 승인 중 오류가 발생했습니다."
+    );
+  }
+});
+
+// --- Bizinfo Scraping Agent ---
+const cheerio = require("cheerio");
+
+exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
+  // 1. 인증 확인 (관리자만 실행 가능하도록 설정하는 것이 좋음)
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다.");
+  }
+
+  try {
+    // 2. 기업마당(Bizinfo) 메인 페이지 또는 공고 리스트 페이지 접근
+    // 예시 URL: 기업마당 지원사업 공고 리스트 (실제 URL 확인 필요)
+    const targetUrl = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/A/74/list.do";
+
+    // Axios로 HTML 가져오기
+    const response = await axios.get(targetUrl);
+    const html = response.data;
+    const $ = cheerio.load(html);
+
+    const scrapedItems = [];
+
+    // 3. 리스트 파싱 (사이트 구조에 따라 선택자 변경 필요)
+    // 예시 선택자: .table_list tbody tr
+    $(".table_list tbody tr").each((index, element) => {
+      const title = $(element).find(".txt_l a").text().trim();
+      const link = $(element).find(".txt_l a").attr("href");
+      const department = $(element).find("td:nth-child(3)").text().trim();
+      const date = $(element).find("td:nth-child(5)").text().trim(); // 등록일 등
+
+      if (title && link) {
+        scrapedItems.push({
+          title,
+          link: "https://www.bizinfo.go.kr" + link, // 상대 경로일 경우
+          department,
+          date,
+          scrapedAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    // 4. Firestore에 저장
+    const batch = db.batch();
+    scrapedItems.forEach((item) => {
+      const docRef = db.collection("scraped_grants").doc(); // Auto ID
+      batch.set(docRef, item);
+    });
+    await batch.commit();
+
+    return {
+      success: true,
+      message: `${scrapedItems.length}건의 공고를 스크래핑하여 저장했습니다.`,
+      data: scrapedItems,
+    };
+  } catch (error) {
+    console.error("Scraping Error:", error);
+    throw new functions.https.HttpsError("internal", "스크래핑 중 오류가 발생했습니다: " + error.message);
+  }
 });
