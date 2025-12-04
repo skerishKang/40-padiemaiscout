@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Building2, Calendar, DollarSign, Users, MapPin, Award, Download, Save } from 'lucide-react';
-import { auth, db, googleProvider, functions } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { Building2, Calendar, DollarSign, Users, MapPin, Award, Save } from 'lucide-react';
+import { auth, db } from '../lib/firebase';
+import { signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
 
 export default function Profile() {
     const [loading, setLoading] = useState(false);
@@ -30,22 +29,10 @@ export default function Profile() {
                 if (docSnap.exists()) {
                     setFormData(prev => ({ ...prev, ...docSnap.data() }));
                 }
-            } else {
-                // Sign in anonymously if not logged in
-                // signInAnonymously(auth).catch(console.error); // Optional: Disable auto-anonymous if we want forced login
             }
         });
         return () => unsubscribe();
     }, []);
-
-    const handleGoogleLogin = async () => {
-        try {
-            await signInWithPopup(auth, googleProvider);
-        } catch (error) {
-            console.error("Login failed:", error);
-            setMessage('로그인에 실패했습니다.');
-        }
-    };
 
     const handleLogout = async () => {
         try {
@@ -107,7 +94,7 @@ export default function Profile() {
                     <p className="text-slate-500 mt-1">정확한 정보를 입력할수록 매칭 정확도가 올라갑니다.</p>
                 </div>
                 <div className="text-right">
-                    {user && !user.isAnonymous ? (
+                    {user && !user.isAnonymous && (
                         <div className="flex flex-col items-end gap-2">
                             <div className="flex items-center gap-2">
                                 {user.photoURL && (
@@ -124,21 +111,9 @@ export default function Profile() {
                                     className={`px-2 py-1 text-xs font-bold rounded ${formData.role === 'pro' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
                                     {formData.role === 'pro' ? 'PRO Plan' : 'Free Plan'}
                                 </span>
-                                <button onClick={handleLogout} className="text-xs text-red-500 hover:underline">로그아웃</button>
+                                <button onClick={handleLogout} className="text-xs text-red-500 hover:underline cursor-pointer">로그아웃</button>
                             </div>
                         </div>
-                    ) : (
-                        <button
-                            onClick={handleGoogleLogin}
-                            className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 text-sm font-medium hover:bg-slate-50 flex items-center gap-2"
-                        >
-                            <img
-                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                                className="w-4 h-4"
-                                alt="Google"
-                            />
-                            Google로 로그인
-                        </button>
                     )}
                 </div>
             </div>
@@ -292,62 +267,6 @@ export default function Profile() {
                             {message}
                         </p>
                     )}
-                    <div className="mt-8 pt-8 border-t border-slate-200">
-                        <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            <Download size={20} className="text-blue-600" />
-                            공고 데이터 동기화
-                        </h3>
-                        <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
-                            <p className="text-sm text-blue-800 mb-4">
-                                기업마당(Bizinfo)의 최신 지원사업 공고를 가져옵니다.<br />
-                                <span className="text-xs text-blue-600 mt-1 block">
-                                    * Free 플랜: 하루 3회 제한 / Pro 플랜: 무제한
-                                </span>
-                            </p>
-
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold text-slate-700">
-                                    오늘 남은 횟수: {formData.role === 'pro' ? '무제한' : `${3 - (formData.scrapeCount || 0)}회`}
-                                </span>
-                                <button
-                                    onClick={async () => {
-                                        // Check Limits
-                                        if (formData.role !== 'pro' && (formData.scrapeCount || 0) >= 3) {
-                                            alert('무료 플랜의 일일 스크래핑 횟수(3회)를 모두 사용했습니다.\nPro 플랜으로 업그레이드하여 무제한으로 이용해보세요!');
-                                            return;
-                                        }
-
-                                        setLoading(true);
-                                        try {
-                                            const scrapeFn = httpsCallable(functions, 'scrapeBizinfo');
-                                            const result = await scrapeFn();
-                                            const data = result.data as { message: string };
-
-                                            // Update usage count
-                                            if (auth.currentUser) {
-                                                const newCount = (formData.scrapeCount || 0) + 1;
-                                                await setDoc(doc(db, 'users', auth.currentUser.uid), {
-                                                    scrapeCount: newCount
-                                                }, { merge: true });
-                                                setFormData(prev => ({ ...prev, scrapeCount: newCount }));
-                                            }
-
-                                            alert(data.message);
-                                        } catch (error: unknown) {
-                                            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                                            alert('스크래핑 실패: ' + errorMessage);
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                    }}
-                                    disabled={loading}
-                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
-                                >
-                                    {loading ? '동기화 중...' : '지금 동기화하기'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
