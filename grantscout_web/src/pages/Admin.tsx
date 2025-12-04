@@ -1,10 +1,29 @@
 import { useState, useEffect } from 'react';
-import { ShieldAlert, Users, CreditCard } from 'lucide-react';
-import { db } from '../lib/firebase';
+import { ShieldAlert, Users, CreditCard, Database, RefreshCw } from 'lucide-react';
+import { db, functions } from '../lib/firebase';
 import { collection, getCountFromServer, query, where } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 
 export default function Admin() {
     const [stats, setStats] = useState({ totalUsers: 0, proUsers: 0 });
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<string | null>(null);
+
+    const handleSync = async () => {
+        setSyncing(true);
+        setSyncResult(null);
+        try {
+            const scrapeBizinfo = httpsCallable(functions, 'scrapeBizinfo');
+            const result = await scrapeBizinfo();
+            const data = result.data as any;
+            setSyncResult(`성공: ${data.message}`);
+        } catch (error: any) {
+            console.error("Sync failed:", error);
+            setSyncResult(`실패: ${error.message}`);
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -65,6 +84,43 @@ export default function Admin() {
             </div>
 
             <div className="grid grid-cols-1 gap-6">
+                {/* Data Collection Section */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-50 text-green-600 rounded-lg">
+                                <Database size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">데이터 수집 및 동기화</h3>
+                                <p className="text-sm text-slate-500">외부 사이트(기업마당 등)에서 공고를 수집합니다.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleSync}
+                            disabled={syncing}
+                            className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {syncing ? (
+                                <>
+                                    <RefreshCw size={18} className="animate-spin" />
+                                    동기화 중...
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw size={18} />
+                                    데이터 동기화
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    {syncResult && (
+                        <div className={`p-4 rounded-xl text-sm ${syncResult.includes('성공') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                            {syncResult}
+                        </div>
+                    )}
+                </div>
+
                 {/* Placeholder for other admin features */}
                 <div className="bg-slate-50 rounded-2xl border border-slate-200 p-12 flex flex-col items-center justify-center text-slate-400 border-dashed">
                     <ShieldAlert size={48} className="mb-4 opacity-20" />

@@ -16,6 +16,7 @@ interface Grant {
     };
     deadlineTimestamp?: Timestamp;
     analyzedAt?: Timestamp;
+    source?: 'bizinfo' | 'k-startup' | 'user-upload'; // Added source field
     // For recommendation logic
     matchReason?: string[];
 }
@@ -52,9 +53,9 @@ export default function Dashboard() {
             try {
                 const now = Timestamp.now();
 
-                // Fetch active grants (deadline > now)
+                // Fetch active grants (deadline > now) from 'grants' collection
                 const grantsQuery = query(
-                    collection(db, 'uploaded_files'),
+                    collection(db, 'grants'), // Changed from 'uploaded_files'
                     where('deadlineTimestamp', '>', now),
                     orderBy('deadlineTimestamp', 'asc'),
                     limit(50)
@@ -93,6 +94,17 @@ export default function Dashboard() {
         const diffTime = deadline.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
+    };
+
+    const getSourceBadge = (source?: string) => {
+        switch (source) {
+            case 'bizinfo':
+                return <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-600">기업마당</span>;
+            case 'user-upload':
+                return <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-green-100 text-green-600">PDF 업로드</span>;
+            default:
+                return <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-500">기타</span>;
+        }
     };
 
     // Check if profile is complete (Basic check)
@@ -153,7 +165,7 @@ export default function Dashboard() {
                         [1, 2, 3].map(i => (
                             <div key={i} className="min-w-[300px] h-[200px] bg-slate-100 rounded-2xl animate-pulse" />
                         ))
-                    ) : (
+                    ) : recommendedGrants.length > 0 ? (
                         recommendedGrants.map(grant => (
                             <RecommendationCard
                                 key={grant.id}
@@ -168,6 +180,11 @@ export default function Dashboard() {
                                 onClick={() => alert(`공고 클릭: ${grant.analysisResult?.사업명}`)}
                             />
                         ))
+                    ) : (
+                        <div className="w-full min-w-[300px] h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
+                            <p className="font-medium mb-1">추천 공고가 없습니다.</p>
+                            <p className="text-sm text-slate-400">아직 수집된 데이터가 없거나 조건에 맞는 공고가 없습니다.</p>
+                        </div>
                     )}
                 </div>
             </section>
@@ -216,6 +233,7 @@ export default function Dashboard() {
                                     <div className="flex justify-between items-start gap-4">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
+                                                {getSourceBadge(grant.source)}
                                                 <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${calculateDday(grant.deadlineTimestamp) === 'D-Day' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'
                                                     }`}>
                                                     {calculateDday(grant.deadlineTimestamp) || '상시'}
