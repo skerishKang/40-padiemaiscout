@@ -22,6 +22,7 @@ const SidebarItem = ({ icon: Icon, label, to, active, onClick }: { icon: React.E
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
     const location = useLocation();
 
@@ -97,14 +98,65 @@ export default function Layout() {
 
                     {/* User Profile / Login */}
                     {auth.currentUser ? (
-                        <Link to="/profile" className="flex items-center gap-2 p-1.5 pr-3 rounded-full border border-white/20 bg-white/50 hover:bg-white/80 transition-all backdrop-blur-sm shadow-sm">
-                            <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 text-primary-700 rounded-full flex items-center justify-center shadow-inner">
-                                <UserCircle size={20} />
-                            </div>
-                            <span className="text-sm font-medium text-slate-700 hidden sm:block">
-                                {auth.currentUser.email?.split('@')[0]}
-                            </span>
-                        </Link>
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                className="flex items-center gap-2 p-1.5 pr-3 rounded-full border border-white/20 bg-white/50 hover:bg-white/80 transition-all backdrop-blur-sm shadow-sm cursor-pointer"
+                            >
+                                <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 text-primary-700 rounded-full flex items-center justify-center shadow-inner">
+                                    <UserCircle size={20} />
+                                </div>
+                                <span className="text-sm font-medium text-slate-700 hidden sm:block">
+                                    {auth.currentUser.email?.split('@')[0]}
+                                </span>
+                            </button>
+
+                            {/* Profile Dropdown */}
+                            {isProfileMenuOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setIsProfileMenuOpen(false)}
+                                    />
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="px-4 py-3 border-b border-slate-50">
+                                            <p className="text-sm font-bold text-slate-900">내 계정</p>
+                                            <p className="text-xs text-slate-500 truncate">{auth.currentUser.email}</p>
+                                        </div>
+                                        <Link
+                                            to="/profile"
+                                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors"
+                                            onClick={() => setIsProfileMenuOpen(false)}
+                                        >
+                                            <FileText size={16} />
+                                            기업 정보 설정
+                                        </Link>
+                                        <button
+                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors text-left"
+                                            onClick={() => {
+                                                setIsProfileMenuOpen(false);
+                                                // Navigate to profile or a dedicated settings modal in future
+                                                window.location.href = '/profile';
+                                            }}
+                                        >
+                                            <UserCircle size={16} />
+                                            개인 정보 설정
+                                        </button>
+                                        <div className="border-t border-slate-50 my-1"></div>
+                                        <button
+                                            onClick={() => {
+                                                auth.signOut();
+                                                setIsProfileMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+                                        >
+                                            <LogOut size={16} />
+                                            로그아웃
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     ) : (
                         <Link to="/login" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
                             <LogIn size={16} />
