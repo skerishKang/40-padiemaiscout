@@ -26,9 +26,9 @@ export default function Layout() {
     const location = useLocation();
 
     const navItems = [
-        { icon: LayoutDashboard, label: '공고', to: '/dashboard' },
-        { icon: MessageSquare, label: '스카우터', to: '/' },
-        { icon: FileText, label: '기업', to: '/profile' },
+        { icon: LayoutDashboard, label: '공고', to: '/' },
+        { icon: MessageSquare, label: '스카우터', to: '/chat' },
+        { icon: FileText, label: '기업 프로필', to: '/profile' },
         { icon: CreditCard, label: '멤버십', to: '/pricing' },
     ];
 
