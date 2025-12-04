@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Calendar, DollarSign, Users, MapPin, Award, Save } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function Profile() {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -69,41 +71,23 @@ export default function Profile() {
         });
     };
 
-    // Auto-save logic
-    useEffect(() => {
-        if (!user) return;
+    // Auto-save logic removed
 
-        const timer = setTimeout(async () => {
-            // Don't save if empty (optional check)
-            if (Object.values(formData).every(v => v === '' || (Array.isArray(v) && v.length === 0))) return;
-
-            setLoading(true);
-            try {
-                await setDoc(doc(db, 'users', user.uid), formData, { merge: true });
-                setMessage('저장됨');
-                setTimeout(() => setMessage(''), 2000);
-            } catch (error) {
-                console.error("Auto-save error:", error);
-                setMessage('저장 실패');
-            } finally {
-                setLoading(false);
-            }
-        }, 1000); // 1 second debounce
-
-        return () => clearTimeout(timer);
-    }, [formData, user]);
-
-    // Manual save is no longer primary, but we can keep it or remove it.
-    // Let's keep a "Save" function just in case, but rely on auto-save.
     const handleSave = async () => {
         // Immediate save
         if (!user) return;
         setLoading(true);
         try {
             await setDoc(doc(db, 'users', user.uid), formData, { merge: true });
-            setMessage('저장되었습니다!');
+            setMessage('저장되었습니다! 대시보드로 이동합니다...');
+
+            // Navigate to Dashboard after a short delay
+            setTimeout(() => {
+                navigate('/');
+            }, 1000);
         } catch (error) {
             console.error("Save error:", error);
+            setMessage('저장에 실패했습니다.');
         } finally {
             setLoading(false);
         }
@@ -117,19 +101,7 @@ export default function Profile() {
                     <p className="text-slate-500 mt-1">정확한 정보를 입력할수록 매칭 정확도가 올라갑니다.</p>
                 </div>
                 <div className="text-right flex items-center gap-4">
-                    {/* Saving Indicator */}
-                    <div className="text-sm font-medium transition-colors duration-300">
-                        {loading ? (
-                            <span className="text-blue-600 flex items-center gap-1">
-                                <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                저장 중...
-                            </span>
-                        ) : message === '저장됨' ? (
-                            <span className="text-green-600 flex items-center gap-1">
-                                <Save size={14} /> 저장됨
-                            </span>
-                        ) : null}
-                    </div>
+                    {/* Saving Indicator Removed */}
 
                     {user && !user.isAnonymous && (
                         <div className="flex flex-col items-end gap-2">
