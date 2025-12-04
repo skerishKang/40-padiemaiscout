@@ -1,0 +1,95 @@
+{
+  "projectName": "GrantScout",
+  "version": "1.0.0",
+  "description": "GrantScout 프로젝트 배포 정책 정의",
+  
+  "deploymentRules": {
+    "github": {
+      "required": true,
+      "autoPush": true,
+      "files": [
+        "**/*.tsx",
+        "**/*.ts", 
+        "**/*.js",
+        "**/*.jsx",
+        "**/*.json",
+        "**/*.css",
+        "**/*.scss",
+        "**/*.md",
+        "**/*.yml",
+        "**/*.yaml",
+        "deploy.ps1",
+        "*.config.js",
+        "*.config.ts"
+      ],
+      "exclude": [
+        "node_modules/**",
+        "dist/**",
+        ".firebase/**",
+        ".git/**",
+        "*.cache",
+        "functions/node_modules/**"
+      ]
+    },
+    "firebase": {
+      "required": true,
+      "hosting": true,
+      "functions": true,
+      "projectId": "grantscout-af8da",
+      "files": [
+        "grantscout_web/dist/**",
+        "grantscout_web/**",
+        "functions/**",
+        "firebase.json",
+        "firestore.rules",
+        "firestore.indexes.json",
+        "storage.rules",
+        ".firebaserc"
+      ],
+      "exclude": [
+        "functions/node_modules/**",
+        "grantscout_web/node_modules/**",
+        ".git/**"
+      ]
+    }
+  },
+
+  "fileTypeRules": {
+    "frontend": {
+      "targets": ["github", "firebase:hosting"],
+      "patterns": [
+        "grantscout_web/src/**",
+        "grantscout_web/public/**",
+        "grantscout_web/dist/**",
+        "grantscout_web/package.json",
+        "grantscout_web/vite.config.ts"
+      ]
+    },
+    "backend": {
+      "targets": ["github", "firebase:functions"],
+      "patterns": [
+        "functions/**",
+        "firebase.json",
+        "firestore.rules"
+      ]
+    },
+    "config": {
+      "targets": ["github", "firebase"],
+      "patterns": [
+        "*.json",
+        "deploy.ps1",
+        ".firebaserc"
+      ]
+    }
+  },
+
+  "deploymentCommands": {
+    "build": "npm --prefix './grantscout_web' run build",
+    "firebase": "firebase deploy --project grantscout-af8da --only 'hosting,functions'"
+  },
+
+  "urls": {
+    "github": "https://github.com/skerishKang/40-padiemaiscout",
+    "firebase": "https://grantscout-af8da.web.app"
+  }
+}
