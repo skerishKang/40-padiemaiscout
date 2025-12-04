@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Filter } from 'lucide-react';
-import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import RecommendationCard from '../components/RecommendationCard';
@@ -22,16 +22,27 @@ interface Grant {
 
 export default function Dashboard() {
     const [user, setUser] = useState<User | null>(null);
+    const [userProfile, setUserProfile] = useState<any>(null);
     const [allGrants, setAllGrants] = useState<Grant[]>([]);
     const [recommendedGrants, setRecommendedGrants] = useState<Grant[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
 
-
-
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
+            if (currentUser) {
+                // Fetch Profile
+                try {
+                    const docRef = doc(db, 'users', currentUser.uid);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setUserProfile(docSnap.data());
+                    }
+                } catch (error) {
+                    console.error("Error fetching profile:", error);
+                }
+            }
         });
         return () => unsubscribe();
     }, []);
@@ -42,12 +53,11 @@ export default function Dashboard() {
                 const now = Timestamp.now();
 
                 // Fetch active grants (deadline > now)
-                // In a real app, we might paginate this or use Algolia for search
                 const grantsQuery = query(
                     collection(db, 'uploaded_files'),
                     where('deadlineTimestamp', '>', now),
                     orderBy('deadlineTimestamp', 'asc'),
-                    limit(50) // Fetch top 50 for client-side filtering demo
+                    limit(50)
                 );
 
                 const snapshot = await getDocs(grantsQuery);
@@ -58,8 +68,7 @@ export default function Dashboard() {
 
                 setAllGrants(grants);
 
-                // Mock Recommendation Logic (In reality, this would be more complex or backend-driven)
-                // For now, we'll pick 3 random ones as "Recommended" and add fake reasons
+                // Mock Recommendation Logic
                 const shuffled = [...grants].sort(() => 0.5 - Math.random());
                 const top3 = shuffled.slice(0, 3).map(g => ({
                     ...g,
@@ -86,8 +95,11 @@ export default function Dashboard() {
         return diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
     };
 
+    // Check if profile is complete (Basic check)
+    const isProfileComplete = userProfile?.industry && userProfile?.location;
+
     // Filter Logic
-    const filteredGrants = allGrants.sort((a, b) => {
+    const filteredGrants = [...allGrants].sort((a, b) => {
         if (viewMode === 'newest') {
             // Sort by analyzedAt (desc)
             return (b.analyzedAt?.toMillis() || 0) - (a.analyzedAt?.toMillis() || 0);
@@ -107,8 +119,27 @@ export default function Dashboard() {
                     </h1>
                     <p className="text-slate-500">오늘의 맞춤 공고를 확인해보세요.</p>
                 </div>
-                {/* Admin Only: Sync Button could go here */}
             </div>
+
+            {/* Profile Setup CTA (Visible only if profile is incomplete) */}
+            {!loading && user && !isProfileComplete && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div>
+                        <h3 className="text-lg font-bold text-blue-900 mb-1">
+                            🏢 우리 기업 정보를 입력해주세요!
+                        </h3>
+                        <p className="text-blue-700 text-sm">
+                            업종, 지역, 업력을 입력하면 <strong>딱 맞는 지원사업</strong>을 추천해드립니다.
+                        </p>
+                    </div>
+                    <a
+                        href="/profile"
+                        className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+                    >
+                        프로필 설정하기
+                    </a>
+                </div>
+            )}
 
             {/* Section 1: Recommended Grants (Slide) */}
             <section>
