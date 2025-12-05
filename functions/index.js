@@ -502,21 +502,33 @@ async function performBizinfoScraping() {
     const $ = cheerio.load(html);
     const scrapedItems = [];
 
-    $(".table_list tbody tr").each((index, element) => {
-      const title = $(element).find(".txt_l a").text().trim();
-      const link = $(element).find(".txt_l a").attr("href");
-      const department = $(element).find("td:nth-child(4)").text().trim();
-      const date = $(element).find("td:nth-child(5)").text().trim();
-
-      if (title && link) {
-        scrapedItems.push({
-          title,
-          link: "https://www.bizinfo.go.kr" + link,
-          department,
-          date,
-          scrapedAt: new Date().toISOString(),
-        });
+    $("table.board_list1 tbody tr").each((index, element) => {
+      const tds = $(element).find("td");
+      if (tds.length < 5) {
+        return;
       }
+
+      const rawTitle = $(tds[1]).text().trim();
+      const titleLink = $(tds[1]).find("a").attr("href") || "";
+      const department = $(tds[2]).text().trim();
+      const date = $(tds[4]).text().trim();
+
+      const title = rawTitle.replace(/\s+/g, " ");
+      if (!title || title.includes("등록된 게시물이 없습니다")) {
+        return;
+      }
+
+      const link = titleLink.startsWith("http") ?
+        titleLink :
+        "https://www.bizinfo.go.kr" + titleLink;
+
+      scrapedItems.push({
+        title,
+        link,
+        department,
+        date,
+        scrapedAt: new Date().toISOString(),
+      });
     });
 
     if (scrapedItems.length === 0) {
@@ -608,13 +620,6 @@ exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, conte
 });
 
 exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "로그인이 필요합니다.",
-    );
-  }
-
   try {
     const result = await performBizinfoScraping();
     return result;
