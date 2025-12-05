@@ -8,15 +8,15 @@
  */
 
 const functions = require("firebase-functions");
-const {initializeApp} = require("firebase-admin/app");
+const { initializeApp } = require("firebase-admin/app");
 const {
   getFirestore,
   FieldValue,
 } = require("firebase-admin/firestore");
 // const {getStorage} = require("firebase-admin/storage");
-const {GoogleGenerativeAI} = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 require("dotenv").config();
-const {setGlobalOptions} = require("firebase-functions/v2");
+const { setGlobalOptions } = require("firebase-functions/v2");
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -26,7 +26,7 @@ initializeApp();
 const db = getFirestore();
 // const storage = getStorage();
 
-setGlobalOptions({region: "asia-northeast3"});
+setGlobalOptions({ region: "asia-northeast3" });
 
 exports.helloWorld = (req, res) => {
   res.send("Hello from Firebase!");
@@ -89,7 +89,7 @@ const GEMINI_MODEL_NAME = "gemini-2.5-flash-lite";
 exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
   const apiKeys = getApiKeysFromEnv();
   if (apiKeys.length === 0) {
-    return {status: "error", message: "설정된 Gemini API 키가 없습니다."};
+    return { status: "error", message: "설정된 Gemini API 키가 없습니다." };
   }
   const testModelName = "gemini-2.5-flash-lite";
   for (const apiKey of apiKeys) {
@@ -97,7 +97,7 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
     const apiKeyShort = apiKey.substring(0, 5) + "...";
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({model: testModelName});
+      const model = genAI.getGenerativeModel({ model: testModelName });
       await model.generateContent("ping");
       return {
         status: "valid",
@@ -105,8 +105,8 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
       };
     } catch (error) {
       if (error.message &&
-          (error.message.includes("quota") ||
-           error.message.includes("Quota"))) {
+        (error.message.includes("quota") ||
+          error.message.includes("Quota"))) {
         continue;
       }
     }
@@ -129,13 +129,13 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
   }
   const apiKeys = getApiKeysFromEnv();
   if (apiKeys.length === 0) {
-    return {status: "error", message: "설정된 Gemini API 키가 없습니다."};
+    return { status: "error", message: "설정된 Gemini API 키가 없습니다." };
   }
   let lastError = null;
   for (const apiKey of apiKeys) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({model: GEMINI_MODEL_NAME});
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
       const prompt = "# 역할: 당신은 대한민국 정부 및 공공기관의 지원사업 " +
         "공고와 신청 기업 정보를 비교하여, 해당 기업이 지원사업에 얼마나 " +
         "적합한지를 객관적인 기준에 따라 평가하는 전문 심사관입니다.\n" +
@@ -180,9 +180,9 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
       try {
         suitability = JSON.parse(text);
       } catch (e) {
-        return {status: "ok", raw: text, parseError: true};
+        return { status: "ok", raw: text, parseError: true };
       }
-      return {status: "ok", suitability};
+      return { status: "ok", suitability };
     } catch (err) {
       lastError = err;
       if (!(err.message && err.message.toLowerCase().includes("quota"))) {
@@ -203,7 +203,7 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
     request.data :
     request;
 
-  const {prompt, fileData, model: preferredModel} = payload || {};
+  const { prompt, fileData, model: preferredModel } = payload || {};
   let finalPrompt = prompt;
 
   if (typeof finalPrompt !== "string") {
@@ -254,7 +254,7 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
     console.error(
       "[chatWithGemini] No Gemini API keys configured in environment",
     );
-    return {status: "error", message: "No Gemini API keys configured"};
+    return { status: "error", message: "No Gemini API keys configured" };
   }
 
   const allowedModels = getAllowedModelsFromEnv();
@@ -284,11 +284,11 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
           modelName,
         });
 
-        const model = genAI.getGenerativeModel({model: modelName});
+        const model = genAI.getGenerativeModel({ model: modelName });
 
         const parts = [];
         if (finalPrompt && finalPrompt.trim().length > 0) {
-          parts.push({text: finalPrompt});
+          parts.push({ text: finalPrompt });
         }
         if (fileData) {
           parts.push({
@@ -317,7 +317,7 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
           textPreview: text ? text.slice(0, 100) : "",
         });
 
-        return {status: "success", text, model: modelName};
+        return { status: "success", text, model: modelName };
       } catch (err) {
         lastError = err;
         const msg = (err && err.message) ? err.message : String(err || "");
@@ -338,10 +338,10 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
           lower.includes("model");
 
         if (!isQuotaOrPermissionIssue) {
-            console.error(
-              "[chatWithGemini] Non-quota/permission/model error, " +
-              "moving to next API key",
-            );
+          console.error(
+            "[chatWithGemini] Non-quota/permission/model error, " +
+            "moving to next API key",
+          );
           break;
         }
         console.log(
@@ -375,14 +375,14 @@ const axios = require("axios");
 
 exports.confirmPayment = functions.https.onCall(async (request, context) => {
   if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "로그인이 필요합니다.",
-      );
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "로그인이 필요합니다.",
+    );
   }
 
   const data = request.data || request;
-  const {paymentKey, orderId, amount} = data;
+  const { paymentKey, orderId, amount } = data;
   const userId = context.auth.uid;
 
   try {
@@ -391,20 +391,20 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
       widgetSecretKey + ":",
     ).toString("base64");
 
-      const response = await axios.post(
-        "https://api.tosspayments.com/v1/payments/confirm",
-        {
-          paymentKey,
-          orderId,
-          amount,
+    const response = await axios.post(
+      "https://api.tosspayments.com/v1/payments/confirm",
+      {
+        paymentKey,
+        orderId,
+        amount,
+      },
+      {
+        headers: {
+          "Authorization": `Basic ${encryptedSecretKey}`,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            "Authorization": `Basic ${encryptedSecretKey}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      },
+    );
 
     if (response.status === 200) {
       await db.collection("users").doc(userId).update({
@@ -422,16 +422,16 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
         provider: "toss",
       });
 
-      return {success: true, message: "Pro 등급으로 업그레이드되었습니다."};
+      return { success: true, message: "Pro 등급으로 업그레이드되었습니다." };
     }
   } catch (error) {
-      console.error(
-        "Payment Confirmation Error:",
-        error.response ? error.response.data : error,
-      );
+    console.error(
+      "Payment Confirmation Error:",
+      error.response ? error.response.data : error,
+    );
 
     if (error.response && error.response.data &&
-        error.response.data.code === "ALREADY_PROCESSED_PAYMENT") {
+      error.response.data.code === "ALREADY_PROCESSED_PAYMENT") {
       await db.collection("users").doc(userId).update({
         role: "pro",
         updatedAt: FieldValue.serverTimestamp(),
@@ -442,37 +442,70 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
       };
     }
 
-      throw new functions.https.HttpsError(
-        "internal",
-        "결제 승인 중 오류가 발생했습니다.",
-      );
+    throw new functions.https.HttpsError(
+      "internal",
+      "결제 승인 중 오류가 발생했습니다.",
+    );
   }
 });
 
 // --- Bizinfo Scraping Agent ---
 const cheerio = require("cheerio");
 
-exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
-  if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "로그인이 필요합니다.",
-      );
+const bizinfoSchedulerDocRef = db.collection("system_settings").doc("bizinfoScheduler");
+const DEFAULT_BIZINFO_SCHEDULER_CONFIG = {
+  enabled: true,
+  intervalMinutes: 60,
+};
+
+async function getBizinfoSchedulerConfigInternal() {
+  const snap = await bizinfoSchedulerDocRef.get();
+  const data = snap.exists ? snap.data() : {};
+  const config = Object.assign({}, DEFAULT_BIZINFO_SCHEDULER_CONFIG, data || {});
+  if (!config.intervalMinutes || typeof config.intervalMinutes !== "number" || config.intervalMinutes <= 0) {
+    config.intervalMinutes = DEFAULT_BIZINFO_SCHEDULER_CONFIG.intervalMinutes;
   }
+  return config;
+}
+
+async function applyBizinfoSchedulerConfigUpdate(updates) {
+  const safeUpdates = {};
+  if (typeof updates.enabled === "boolean") {
+    safeUpdates.enabled = updates.enabled;
+  }
+  if (typeof updates.intervalMinutes === "number" && updates.intervalMinutes > 0) {
+    const min = 15;
+    const max = 24 * 60;
+    let v = Math.round(updates.intervalMinutes);
+    if (v < min) {
+      v = min;
+    }
+    if (v > max) {
+      v = max;
+    }
+    safeUpdates.intervalMinutes = v;
+  }
+  if (Object.keys(safeUpdates).length === 0) {
+    return getBizinfoSchedulerConfigInternal();
+  }
+  await bizinfoSchedulerDocRef.set(safeUpdates, { merge: true });
+  return getBizinfoSchedulerConfigInternal();
+}
+
+// --- Bizinfo Scraping Logic (Shared) ---
+async function performBizinfoScraping() {
+  const targetUrl = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/A/74/list.do";
 
   try {
-    const targetUrl = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/A/74/list.do";
-
     const response = await axios.get(targetUrl);
     const html = response.data;
     const $ = cheerio.load(html);
-
     const scrapedItems = [];
 
     $(".table_list tbody tr").each((index, element) => {
       const title = $(element).find(".txt_l a").text().trim();
       const link = $(element).find(".txt_l a").attr("href");
-      const department = $(element).find("td:nth-child(3)").text().trim();
+      const department = $(element).find("td:nth-child(4)").text().trim();
       const date = $(element).find("td:nth-child(5)").text().trim();
 
       if (title && link) {
@@ -485,6 +518,11 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
         });
       }
     });
+
+    if (scrapedItems.length === 0) {
+      console.log("No items scraped.");
+      return { success: false, message: "스크래핑된 공고가 없습니다.", count: 0 };
+    }
 
     const batch = db.batch();
     scrapedItems.forEach((item) => {
@@ -501,12 +539,156 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
       success: true,
       message: `${scrapedItems.length}건의 공고를 스크래핑하여 저장했습니다.`,
       data: scrapedItems,
+      count: scrapedItems.length
     };
   } catch (error) {
+    console.error("Scraping Logic Error:", error);
+    throw error;
+  }
+}
+
+exports.getBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "로그인이 필요합니다.",
+    );
+  }
+  try {
+    const config = await getBizinfoSchedulerConfigInternal();
+    let lastRunAt = null;
+    if (config.lastRunAt && typeof config.lastRunAt.toDate === "function") {
+      lastRunAt = config.lastRunAt.toDate().toISOString();
+    } else if (typeof config.lastRunAt === "string") {
+      lastRunAt = config.lastRunAt;
+    }
+    return {
+      success: true,
+      config: Object.assign({}, config, { lastRunAt }),
+    };
+  } catch (error) {
+    console.error("getBizinfoSchedulerConfig error:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "스케줄러 설정 조회 중 오류가 발생했습니다.",
+    );
+  }
+});
+
+exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "로그인이 필요합니다.",
+    );
+  }
+  const payload = data && typeof data === "object" && "data" in data ? data.data : data;
+  const updates = {};
+  if (payload && typeof payload === "object") {
+    if (typeof payload.enabled === "boolean") {
+      updates.enabled = payload.enabled;
+    }
+    if (typeof payload.intervalMinutes === "number") {
+      updates.intervalMinutes = payload.intervalMinutes;
+    }
+  }
+  if (Object.keys(updates).length === 0) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "업데이트할 필드가 없습니다.",
+    );
+  }
+  try {
+    const config = await applyBizinfoSchedulerConfigUpdate(updates);
+    let lastRunAt = null;
+    if (config.lastRunAt && typeof config.lastRunAt.toDate === "function") {
+      lastRunAt = config.lastRunAt.toDate().toISOString();
+    } else if (typeof config.lastRunAt === "string") {
+      lastRunAt = config.lastRunAt;
+    }
+    return {
+      success: true,
+      config: Object.assign({}, config, { lastRunAt }),
+    };
+  } catch (error) {
+    console.error("updateBizinfoSchedulerConfig error:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "스케줄러 설정 업데이트 중 오류가 발생했습니다.",
+    );
+  }
+});
+
+exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "로그인이 필요합니다.",
+    );
+  }
+
+  try {
+    const result = await performBizinfoScraping();
+    return result;
+  } catch (error) {
     console.error("Scraping Error:", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "스크래핑 중 오류가 발생했습니다: " + error.message,
-      );
+    throw new functions.https.HttpsError(
+      "internal",
+      "스크래핑 중 오류가 발생했습니다: " + error.message,
+    );
+  }
+});
+
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+
+// ... (existing code)
+
+// --- Scheduled Scraper (Every Day at 09:00 KST) ---
+exports.scheduledScrapeBizinfo = onSchedule({
+  schedule: "every 15 minutes",
+  timeZone: "Asia/Seoul",
+}, async (event) => {
+  console.log("Running scheduled Bizinfo scraping (interval mode)...");
+  try {
+    const config = await getBizinfoSchedulerConfigInternal();
+    if (!config.enabled) {
+      console.log("Bizinfo scheduler is disabled; skipping run.");
+      return;
+    }
+    const intervalMinutes = typeof config.intervalMinutes === "number" && config.intervalMinutes > 0 ?
+      config.intervalMinutes :
+      DEFAULT_BIZINFO_SCHEDULER_CONFIG.intervalMinutes;
+    let lastRunAt = config.lastRunAt;
+    let shouldRun = true;
+    if (lastRunAt && typeof lastRunAt.toDate === "function") {
+      const lastRunDate = lastRunAt.toDate();
+      const now = new Date();
+      const diffMs = now.getTime() - lastRunDate.getTime();
+      const diffMinutes = diffMs / (1000 * 60);
+      if (diffMinutes < intervalMinutes) {
+        shouldRun = false;
+      }
+    }
+    if (!shouldRun) {
+      console.log("Skipping Bizinfo scraping; interval has not elapsed yet.");
+      return;
+    }
+    const result = await performBizinfoScraping();
+    console.log("Scheduled scraping completed:", result.message);
+    await bizinfoSchedulerDocRef.set({
+      lastRunAt: FieldValue.serverTimestamp(),
+      lastRunResult: result.message,
+      lastRunError: null,
+    }, { merge: true });
+  } catch (error) {
+    console.error("Scheduled scraping failed:", error);
+    try {
+      await bizinfoSchedulerDocRef.set({
+        lastRunAt: FieldValue.serverTimestamp(),
+        lastRunError: error && error.message ? error.message : String(error),
+      }, { merge: true });
+    } catch (e) {
+      console.error("Failed to update scheduler status:", e);
+    }
   }
 });
