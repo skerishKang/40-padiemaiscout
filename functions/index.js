@@ -548,12 +548,6 @@ async function performBizinfoScraping() {
 }
 
 exports.getBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "로그인이 필요합니다.",
-    );
-  }
   try {
     const config = await getBizinfoSchedulerConfigInternal();
     let lastRunAt = null;
@@ -576,12 +570,6 @@ exports.getBizinfoSchedulerConfig = functions.https.onCall(async (data, context)
 });
 
 exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "로그인이 필요합니다.",
-    );
-  }
   const payload = data && typeof data === "object" && "data" in data ? data.data : data;
   const updates = {};
   if (payload && typeof payload === "object") {
