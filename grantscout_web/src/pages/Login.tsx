@@ -47,17 +47,17 @@ export default function Login() {
             <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-8 w-full max-w-md">
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold text-slate-900">
-                        {isSignUp ? '테스트 계정 생성' : '로그인'}
+                        {isSignUp ? '회원가입' : '로그인'}
                     </h1>
                     <p className="text-slate-500 mt-2">
-                        {isSignUp ? '새로운 테스트용 계정을 만듭니다.' : '계정에 로그인하세요.'}
+                        {isSignUp ? '이메일과 비밀번호로 새 계정을 만듭니다.' : '계정에 로그인하세요.'}
                     </p>
                 </div>
 
                 {/* Google Login Button */}
                 <button
                     onClick={handleGoogleLogin}
-                    className="w-full py-3 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 mb-6 shadow-sm cursor-pointer"
+                    className="w-full py-3 bg-slate-900 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 mb-6 shadow-md cursor-pointer"
                 >
                     <img
                         src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
@@ -126,7 +126,7 @@ export default function Login() {
                 <div className="mt-6 text-center">
                     <button
                         onClick={() => setIsSignUp(!isSignUp)}
-                        className="text-sm text-primary-600 hover:underline cursor-pointer"
+                        className="text-sm text-primary-700 font-semibold hover:text-primary-800 hover:underline cursor-pointer"
                     >
                         {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
                     </button>
