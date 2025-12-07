@@ -22,6 +22,15 @@ interface AdminUser {
     lastLogin?: any;
 }
 
+interface AdminSyncLog {
+    id: string;
+    type: string;
+    status: string;
+    message?: string;
+    triggeredAt?: any;
+    triggerEmail?: string;
+}
+
 export default function Admin() {
     const navigate = useNavigate();
     const [stats, setStats] = useState({ totalUsers: 0, proUsers: 0 });
@@ -38,6 +47,10 @@ export default function Admin() {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+    const [userSearch, setUserSearch] = useState('');
+    const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'free' | 'pro' | 'premium' | 'admin'>('all');
+    const [syncLogs, setSyncLogs] = useState<AdminSyncLog[]>([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
 
     const handleSyncBizinfo = async () => {
         setBizinfoSyncing(true);
@@ -174,6 +187,31 @@ export default function Admin() {
         }
     };
 
+    const fetchSyncLogs = async () => {
+        setLoadingLogs(true);
+        try {
+            const logsColl = collection(db, 'admin_sync_logs');
+            const logsQuery = query(logsColl, orderBy('triggeredAt', 'desc'), limit(50));
+            const snapshot = await getDocs(logsQuery);
+            const list: AdminSyncLog[] = snapshot.docs.map((docSnap) => {
+                const data = docSnap.data() as any;
+                return {
+                    id: docSnap.id,
+                    type: data.type || '',
+                    status: data.status || '',
+                    message: data.message || '',
+                    triggeredAt: data.triggeredAt,
+                    triggerEmail: data.triggerEmail || '',
+                };
+            });
+            setSyncLogs(list);
+        } catch (error) {
+            console.error('Failed to fetch sync logs:', error);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
+
     const handleChangeUserRole = async (userId: string, newRole: string) => {
         const labelMap: Record<string, string> = {
             free: '일반',
@@ -197,11 +235,44 @@ export default function Admin() {
         }
     };
 
+    const filteredUsers = users.filter((u) => {
+        const role = (u.role || 'free') as 'free' | 'pro' | 'premium' | 'admin';
+        if (userRoleFilter !== 'all' && role !== userRoleFilter) {
+            return false;
+        }
+        if (!userSearch.trim()) return true;
+        const q = userSearch.trim().toLowerCase();
+        const name = (u.displayName || '').toLowerCase();
+        const email = (u.email || '').toLowerCase();
+        const id = (u.id || '').toLowerCase();
+        return name.includes(q) || email.includes(q) || id.includes(q);
+    });
+
     const formatLastRunAt = (value?: string | null) => {
         if (!value) return '-';
         const date = new Date(value);
         if (isNaN(date.getTime())) return value;
         return date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    };
+
+    const formatLogTime = (value: any) => {
+        if (!value) return '-';
+        try {
+            if (value.toDate && typeof value.toDate === 'function') {
+                const d = value.toDate() as Date;
+                return d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+            }
+            if (typeof value === 'string') {
+                const d = new Date(value);
+                if (!isNaN(d.getTime())) {
+                    return d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+                }
+                return value;
+            }
+        } catch (e) {
+            console.error('Failed to format log time:', e);
+        }
+        return '-';
     };
 
     useEffect(() => {
@@ -263,6 +334,7 @@ export default function Admin() {
             await fetchStats();
             await fetchSchedulerConfig();
             await fetchUsers();
+            await fetchSyncLogs();
         };
 
         init();
@@ -529,6 +601,34 @@ export default function Admin() {
                         </button>
                     </div>
 
+                    {/* 검색 / Role 필터 */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                            <Users size={14} className="text-slate-400" />
+                            <span>필터 · 검색</span>
+                        </div>
+                        <div className="flex flex-1 justify-end gap-2">
+                            <input
+                                type="text"
+                                placeholder="이름, 이메일, ID 검색"
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                                className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                            />
+                            <select
+                                value={userRoleFilter}
+                                onChange={(e) => setUserRoleFilter(e.target.value as 'all' | 'free' | 'pro' | 'premium' | 'admin')}
+                                className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white min-w-[90px]"
+                            >
+                                <option value="all">전체 등급</option>
+                                <option value="free">일반</option>
+                                <option value="pro">Pro</option>
+                                <option value="premium">Premium</option>
+                                <option value="admin">관리자</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto -mx-3">
                         <table className="min-w-full text-sm text-slate-700">
                             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -546,14 +646,14 @@ export default function Admin() {
                                             유저 목록을 불러오는 중입니다...
                                         </td>
                                     </tr>
-                                ) : users.length === 0 ? (
+                                ) : filteredUsers.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
-                                            가입된 유저가 없습니다.
+                                            조건에 맞는 유저가 없습니다.
                                         </td>
                                     </tr>
                                 ) : (
-                                    users.map((u) => (
+                                    filteredUsers.map((u) => (
                                         <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50">
                                             <td className="px-3 py-2">
                                                 <div className="flex flex-col">
@@ -584,6 +684,105 @@ export default function Admin() {
                                             </td>
                                         </tr>
                                     ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Sync Logs Section */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">동기화 로그</h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                최근 Bizinfo / K-Startup / 상세분석 실행 이력을 확인합니다.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={fetchSyncLogs}
+                            disabled={loadingLogs}
+                            className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {loadingLogs ? '불러오는 중...' : '새로고침'}
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto -mx-3">
+                        <table className="min-w-full text-xs text-slate-700">
+                            <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                                <tr>
+                                    <th className="px-3 py-2 text-left">시간</th>
+                                    <th className="px-3 py-2 text-left">작업</th>
+                                    <th className="px-3 py-2 text-left">상태</th>
+                                    <th className="px-3 py-2 text-left">메시지</th>
+                                    <th className="px-3 py-2 text-left">실행자</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loadingLogs ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                                            로그를 불러오는 중입니다...
+                                        </td>
+                                    </tr>
+                                ) : syncLogs.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                                            저장된 동기화 로그가 없습니다.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    syncLogs.map((log) => {
+                                        const typeLabel =
+                                            log.type === 'scrape_bizinfo' ? '기업마당 동기화' :
+                                                log.type === 'scrape_k_startup' ? 'K-Startup 동기화' :
+                                                    log.type === 'analyze_scraped_grants_batch' ? '상세 분석 배치' :
+                                                        log.type === 'scheduled_scrape_bizinfo' ? '스케줄 Bizinfo 동기화' :
+                                                            log.type;
+
+                                        const statusBadgeClass =
+                                            log.status === 'success'
+                                                ? 'bg-green-50 text-green-700 border-green-100'
+                                                : log.status === 'error'
+                                                    ? 'bg-red-50 text-red-700 border-red-100'
+                                                    : 'bg-slate-50 text-slate-600 border-slate-200';
+
+                                        return (
+                                            <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50">
+                                                <td className="px-3 py-2 align-top whitespace-nowrap">
+                                                    {formatLogTime(log.triggeredAt)}
+                                                </td>
+                                                <td className="px-3 py-2 align-top">
+                                                    <span className="text-[11px] font-medium text-slate-800">
+                                                        {typeLabel}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 align-top">
+                                                    <span
+                                                        className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBadgeClass}`}
+                                                    >
+                                                        {log.status === 'success'
+                                                            ? '성공'
+                                                            : log.status === 'error'
+                                                                ? '실패'
+                                                                : log.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 align-top max-w-xs">
+                                                    <p className="text-[11px] text-slate-600 line-clamp-2">
+                                                        {log.message || '—'}
+                                                    </p>
+                                                </td>
+                                                <td className="px-3 py-2 align-top whitespace-nowrap">
+                                                    <span className="text-[11px] text-slate-500">
+                                                        {log.triggerEmail || '—'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

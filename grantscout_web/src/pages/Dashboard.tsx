@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Filter } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth, functions } from '../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -37,6 +37,8 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
     const [sourceFilter, setSourceFilter] = useState<'all' | 'bizinfo' | 'k-startup' | 'user-upload'>('all');
+    const [analysisPreviewGrant, setAnalysisPreviewGrant] = useState<Grant | null>(null);
+    const [selectedRecoGrant, setSelectedRecoGrant] = useState<Grant | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -247,26 +249,23 @@ export default function Dashboard() {
 
     // Filter Logic
     const filteredGrants = [...allGrants]
-        .filter(grant => {
+        .filter((grant) => {
             if (sourceFilter === 'all') return true;
             return grant.source === sourceFilter;
         })
         .sort((a, b) => {
             if (viewMode === 'newest') {
-                // Sort by analyzedAt (desc)
                 const aTime = a.analyzedAt?.toMillis() || a.createdAt?.toMillis() || 0;
                 const bTime = b.analyzedAt?.toMillis() || b.createdAt?.toMillis() || 0;
                 return bTime - aTime;
-            } else {
-                // Sort by deadline (asc)
-                return (a.deadlineTimestamp?.toMillis() || 0) - (b.deadlineTimestamp?.toMillis() || 0);
             }
+            return (a.deadlineTimestamp?.toMillis() || 0) - (b.deadlineTimestamp?.toMillis() || 0);
         });
 
     return (
-        <div className="h-full flex flex-col gap-6 p-4 max-w-5xl mx-auto w-full">
+        <div className="h-full flex flex-col gap-4 sm:gap-6 px-3 py-3 sm:p-4 max-w-5xl mx-auto w-full">
             {/* Header */}
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">
                         {user?.displayName ? `${user.displayName}님,` : '사장님,'}
@@ -311,21 +310,22 @@ export default function Dashboard() {
 
             {/* Section 1: Recommended Grants (Slide) */}
             <section>
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
                     <span className="text-lg font-bold text-slate-900">오늘의 추천 3</span>
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">AI Pick</span>
                 </div>
-                <p className="text-xs text-slate-400 mb-4">
-                    {recommendationSubtitle}
-                </p>
+                <p className="text-xs text-slate-400 mb-4">{recommendationSubtitle}</p>
 
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
                     {loading ? (
-                        [1, 2, 3].map(i => (
-                            <div key={i} className="min-w-[300px] h-[200px] bg-slate-100 rounded-2xl animate-pulse" />
+                        [1, 2, 3].map((i) => (
+                            <div
+                                key={i}
+                                className="min-w-[300px] h-[200px] bg-slate-100 rounded-2xl animate-pulse"
+                            />
                         ))
                     ) : recommendedGrants.length > 0 ? (
-                        recommendedGrants.map(grant => (
+                        recommendedGrants.map((grant) => (
                             <RecommendationCard
                                 key={grant.id}
                                 grant={{
@@ -334,16 +334,19 @@ export default function Dashboard() {
                                     department: getGrantDepartment(grant),
                                     endDate: getGrantEndDateLabel(grant),
                                     views: 0,
-                                    matchReason: grant.matchReason
+                                    matchReason: grant.matchReason,
                                 }}
-                                onClick={() => handleGrantClick(grant)}
+                                onClick={() => setSelectedRecoGrant(grant)}
                             />
                         ))
-                    ) : (!user || !isProOrPremium) ? (
+                    ) : !user || !isProOrPremium ? (
                         <div className="w-full min-w-[300px] h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
-                            <p className="font-medium mb-1">AI 맞춤 추천은 Pro / 프리미엄 전용 기능입니다.</p>
+                            <p className="font-medium mb-1">
+                                AI 맞춤 추천은 Pro / 프리미엄 전용 기능입니다.
+                            </p>
                             <p className="text-sm text-slate-400 mb-3">
-                                기업 프로필을 설정하고 Pro로 업그레이드하면 우리 회사에 딱 맞는 지원사업을 추천해드립니다.
+                                기업 프로필을 설정하고 Pro로 업그레이드하면 우리 회사에 딱 맞는 지원사업을
+                                추천해드립니다.
                             </p>
                             <a
                                 href="/pricing"
@@ -356,7 +359,8 @@ export default function Dashboard() {
                         <div className="w-full min-w-[300px] h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
                             <p className="font-medium mb-1">아직 추천할 공고가 없습니다.</p>
                             <p className="text-sm text-slate-400">
-                                Admin에서 상세 분석(프리미엄)을 실행해 분석된 공고를 늘리면 더 정확한 추천을 받을 수 있습니다.
+                                Admin에서 상세 분석(프리미엄)을 실행해 분석된 공고를 늘리면 더 정확한 추천을 받을
+                                수 있습니다.
                             </p>
                         </div>
                     )}
@@ -365,52 +369,77 @@ export default function Dashboard() {
 
             {/* Section 2: Exploration List */}
             <section className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
                         <button
                             onClick={() => setViewMode('newest')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'newest' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                }`}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                viewMode === 'newest'
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
+                            }`}
                         >
                             최신순
                         </button>
                         <button
                             onClick={() => setViewMode('closing-soon')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'closing-soon' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                }`}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                viewMode === 'closing-soon'
+                                    ? 'bg-white text-purple-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
+                            }`}
                         >
                             마감임박
                         </button>
                     </div>
 
-                    <div className="flex gap-3 items-center">
+                    <div className="flex gap-3 items-center justify-end">
                         <div className="flex gap-1 bg-slate-50 p-1 rounded-lg">
                             <button
                                 onClick={() => setSourceFilter('all')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${sourceFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                    sourceFilter === 'all'
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
                             >
                                 전체
                             </button>
                             <button
                                 onClick={() => setSourceFilter('bizinfo')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${sourceFilter === 'bizinfo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                    sourceFilter === 'bizinfo'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
                             >
                                 기업마당
                             </button>
                             <button
                                 onClick={() => setSourceFilter('k-startup')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${sourceFilter === 'k-startup' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                    sourceFilter === 'k-startup'
+                                        ? 'bg-white text-indigo-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
                             >
                                 K-Startup
                             </button>
                             <button
                                 onClick={() => setSourceFilter('user-upload')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${sourceFilter === 'user-upload' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                    sourceFilter === 'user-upload'
+                                        ? 'bg-white text-green-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
                             >
                                 PDF 업로드
                             </button>
                         </div>
-                        <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50" title="필터 옵션">
+                        <button
+                            className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"
+                            title="필터 옵션"
+                        >
                             <Filter size={18} />
                         </button>
                     </div>
@@ -423,10 +452,10 @@ export default function Dashboard() {
                         ) : filteredGrants.length === 0 ? (
                             <p className="text-center text-slate-500 py-8">조건에 맞는 공고가 없습니다.</p>
                         ) : (
-                            filteredGrants.map(grant => (
+                            filteredGrants.map((grant) => (
                                 <div
                                     key={grant.id}
-                                    className="p-4 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border-b border-slate-50 last:border-0"
+                                    className="p-4 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border-b border-slate-50 last-border-0"
                                     onClick={() => handleGrantClick(grant)}
                                 >
                                     <div className="flex justify-between items-start gap-4">
@@ -434,9 +463,16 @@ export default function Dashboard() {
                                             <div className="flex items-center gap-2 mb-1">
                                                 {getSourceBadge(grant.source)}
                                                 {grant.analysisResult && (
-                                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-600 border border-purple-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAnalysisPreviewGrant(grant);
+                                                        }}
+                                                        className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-colors"
+                                                    >
                                                         상세분석
-                                                    </span>
+                                                    </button>
                                                 )}
                                                 <span
                                                     className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
@@ -467,6 +503,150 @@ export default function Dashboard() {
                     </div>
                 </div>
             </section>
+
+            {/* 상세분석 요약 모달 */}
+            {analysisPreviewGrant && analysisPreviewGrant.analysisResult && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-base font-bold text-slate-900">상세 분석 요약</h2>
+                            <button
+                                type="button"
+                                onClick={() => setAnalysisPreviewGrant(null)}
+                                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                title="닫기"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="space-y-2 text-sm text-slate-700">
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500 mb-0.5">사업명</div>
+                                <div className="font-medium text-slate-900">
+                                    {getGrantTitle(analysisPreviewGrant)}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mt-2">
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-500 mb-0.5">담당 부처/지자체</div>
+                                    <div className="text-xs text-slate-700">
+                                        {getGrantDepartment(analysisPreviewGrant)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-500 mb-0.5">신청 마감</div>
+                                    <div className="text-xs text-slate-700">
+                                        {getGrantEndDateLabel(analysisPreviewGrant)}
+                                    </div>
+                                </div>
+                            </div>
+                            {analysisPreviewGrant.analysisResult.신청자격_상세 && (
+                                <div className="mt-3">
+                                    <div className="text-xs font-semibold text-slate-500 mb-0.5">신청 자격 요약</div>
+                                    <p className="text-xs text-slate-700 whitespace-pre-wrap line-clamp-4">
+                                        {analysisPreviewGrant.analysisResult.신청자격_상세}
+                                    </p>
+                                </div>
+                            )}
+                            {analysisPreviewGrant.analysisResult.지원규모_금액 && (
+                                <div className="mt-2 text-xs text-slate-600">
+                                    <span className="font-semibold">지원 규모: </span>
+                                    {analysisPreviewGrant.analysisResult.지원규모_금액}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setAnalysisPreviewGrant(null)}
+                                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            >
+                                닫기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleGrantClick(analysisPreviewGrant);
+                                    setAnalysisPreviewGrant(null);
+                                }}
+                                className="px-3 py-1.5 text-xs rounded-lg bg-slate-900 text-white hover:bg-slate-800"
+                            >
+                                원문 페이지 열기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 추천 상세 모달 */}
+            {selectedRecoGrant && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-base font-bold text-slate-900">추천 공고 상세</h2>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedRecoGrant(null)}
+                                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                title="닫기"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="space-y-2 text-sm text-slate-700">
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500 mb-0.5">사업명</div>
+                                <div className="font-medium text-slate-900">
+                                    {getGrantTitle(selectedRecoGrant)}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mt-2">
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-500 mb-0.5">담당 부처/지자체</div>
+                                    <div className="text-xs text-slate-700">
+                                        {getGrantDepartment(selectedRecoGrant)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-500 mb-0.5">신청 마감</div>
+                                    <div className="text-xs text-slate-700">
+                                        {getGrantEndDateLabel(selectedRecoGrant)}
+                                    </div>
+                                </div>
+                            </div>
+                            {selectedRecoGrant.matchReason && selectedRecoGrant.matchReason.length > 0 && (
+                                <div className="mt-3">
+                                    <div className="text-xs font-semibold text-slate-500 mb-1">추천 이유</div>
+                                    <ul className="list-disc list-inside space-y-0.5 text-xs text-slate-700">
+                                        {selectedRecoGrant.matchReason.map((reason, idx) => (
+                                            <li key={idx}>{reason}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedRecoGrant(null)}
+                                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            >
+                                닫기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleGrantClick(selectedRecoGrant);
+                                    setSelectedRecoGrant(null);
+                                }}
+                                className="px-3 py-1.5 text-xs rounded-lg bg-slate-900 text-white hover:bg-slate-800"
+                            >
+                                원문 페이지 열기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

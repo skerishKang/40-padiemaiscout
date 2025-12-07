@@ -27,6 +27,13 @@ const DEFAULT_PROMPT_TEMPLATE = `당신은 국내 기업의 정부지원사업/�
 3. 준비해야 할 것
 4. 추가로 체크해야 할 리스크`;
 
+const QUICK_PROMPTS: string[] = [
+    '이 공고의 핵심 요약과 지원 대상을 정리해줘.',
+    '우리 회사가 이 공고에 지원 가능한지, 가능성과 이유를 설명해줘.',
+    '신청 자격, 지원 규모, 신청 제외 대상만 표로 정리해줘.',
+    '이 공고에 맞는 사업계획서 개요(목차)를 제안해줘.',
+];
+
 interface Message {
     id: string;
     role: 'user' | 'ai';
@@ -431,6 +438,24 @@ export default function Chat() {
                             <span className="text-sm font-semibold">전송</span>
                             <Send size={18} />
                         </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {QUICK_PROMPTS.map((prompt, idx) => (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={() =>
+                                    setInput((prev) =>
+                                        prev
+                                            ? `${prev}${prev.endsWith('\n') ? '' : '\n'}${prompt}`
+                                            : prompt,
+                                    )
+                                }
+                                className="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[11px] text-slate-600 hover:border-blue-200 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                                {prompt}
+                            </button>
+                        ))}
                     </div>
                     {attachedFile && !input.trim() && (
                         <div className="mt-2 text-[11px] text-slate-500 flex items-center gap-1">

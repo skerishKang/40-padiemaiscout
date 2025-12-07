@@ -29,6 +29,30 @@ const db = getFirestore();
 
 setGlobalOptions({ region: "asia-northeast3" });
 
+// --- Admin Sync Log Helper (운영용 장기 로그) ---
+async function logAdminSync(type, status, message, meta, context) {
+  try {
+    const logData = {
+      type,
+      status,
+      message: message || "",
+      meta: meta || null,
+      triggeredAt: FieldValue.serverTimestamp(),
+    };
+
+    if (context && context.auth) {
+      logData.triggerUid = context.auth.uid || null;
+      if (context.auth.token && context.auth.token.email) {
+        logData.triggerEmail = context.auth.token.email;
+      }
+    }
+
+    await db.collection("admin_sync_logs").add(logData);
+  } catch (e) {
+    console.error("[logAdminSync] Failed to write admin_sync_logs: ", e);
+  }
+}
+
 // 기본 예제용 HTTP 함수는 v2 런타임에서도 인식 가능한 onRequest 래퍼를 사용하도록 수정
 exports.helloWorld = functions.https.onRequest((req, res) => {
   res.send("Hello from Firebase!");
@@ -927,14 +951,39 @@ exports.analyzeScrapedGrantsBatch = functions.https.onCall(async (request, conte
     }
 
     const processedCount = results.filter((r) => r.status === "processed").length;
+    const successMessage = `${processedCount}건의 공고를 상세 분석했습니다.`;
+
+    try {
+      await logAdminSync(
+        "analyze_scraped_grants_batch",
+        "success",
+        successMessage,
+        { processed: processedCount, batchSize, sources: allowedSources },
+        context,
+      );
+    } catch (e) {
+      // 로깅 실패는 서비스 동작에 영향을 주지 않음
+    }
+
     return {
       success: true,
-      message: `${processedCount}건의 공고를 상세 분석했습니다.`,
+      message: successMessage,
       processed: processedCount,
       results,
     };
   } catch (error) {
     console.error("[analyzeScrapedGrantsBatch] Fatal error:", error);
+    try {
+      await logAdminSync(
+        "analyze_scraped_grants_batch",
+        "error",
+        error && error.message ? error.message : String(error),
+        { batchSize, sources: allowedSources },
+        context,
+      );
+    } catch (e) {
+      // ignore log error
+    }
     throw new functions.https.HttpsError(
       "internal",
       "스크랩된 공고 상세 분석 중 오류가 발생했습니다: " + (error && error.message ? error.message : String(error)),
@@ -1005,9 +1054,31 @@ exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, conte
 exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
   try {
     const result = await performBizinfoScraping();
+    try {
+      await logAdminSync(
+        "scrape_bizinfo",
+        "success",
+        result && result.message ? result.message : "Bizinfo 스크래핑 성공",
+        { count: result && typeof result.count === "number" ? result.count : null },
+        context,
+      );
+    } catch (e) {
+      // 로깅 실패는 서비스 동작에 영향을 주지 않음
+    }
     return result;
   } catch (error) {
     console.error("Scraping Error:", error);
+    try {
+      await logAdminSync(
+        "scrape_bizinfo",
+        "error",
+        error && error.message ? error.message : String(error),
+        null,
+        context,
+      );
+    } catch (e) {
+      // ignore log error
+    }
     throw new functions.https.HttpsError(
       "internal",
       "스크래핑 중 오류가 발생했습니다: " + error.message,
@@ -1018,9 +1089,31 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
 exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
   try {
     const result = await performKStartupScraping();
+    try {
+      await logAdminSync(
+        "scrape_k_startup",
+        "success",
+        result && result.message ? result.message : "K-Startup 스크래핑 성공",
+        { count: result && typeof result.count === "number" ? result.count : null },
+        context,
+      );
+    } catch (e) {
+      // 로깅 실패는 서비스 동작에 영향을 주지 않음
+    }
     return result;
   } catch (error) {
     console.error("K-Startup Scraping Error:", error);
+    try {
+      await logAdminSync(
+        "scrape_k_startup",
+        "error",
+        error && error.message ? error.message : String(error),
+        null,
+        context,
+      );
+    } catch (e) {
+      // ignore log error
+    }
     throw new functions.https.HttpsError(
       "internal",
       "K-Startup 스크래핑 중 오류가 발생했습니다: " + error.message,
@@ -1069,9 +1162,34 @@ exports.scheduledScrapeBizinfo = onSchedule({
       lastRunResult: result.message,
       lastRunError: null,
     }, { merge: true });
+    try {
+      await logAdminSync(
+        "scheduled_scrape_bizinfo",
+        "success",
+        result && result.message ? result.message : "스케줄 Bizinfo 스크래핑 성공",
+        {
+          scheduled: true,
+          count: result && typeof result.count === "number" ? result.count : null,
+        },
+        null,
+      );
+    } catch (e) {
+      // ignore log error
+    }
   } catch (error) {
     console.error("Scheduled scraping failed:", error);
     try {
+      try {
+        await logAdminSync(
+          "scheduled_scrape_bizinfo",
+          "error",
+          error && error.message ? error.message : String(error),
+          { scheduled: true },
+          null,
+        );
+      } catch (e) {
+        // ignore log error
+      }
       await bizinfoSchedulerDocRef.set({
         lastRunAt: FieldValue.serverTimestamp(),
         lastRunError: error && error.message ? error.message : String(error),
