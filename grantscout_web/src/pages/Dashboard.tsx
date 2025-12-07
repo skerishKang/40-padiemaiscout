@@ -227,6 +227,24 @@ export default function Dashboard() {
     const userRole = userProfile?.role;
     const isProOrPremium = userRole === 'pro' || userRole === 'premium';
 
+    const roleLabel = (() => {
+        if (!user) return '게스트';
+        if (userRole === 'pro') return 'Pro';
+        if (userRole === 'premium') return 'Premium';
+        if (userRole === 'admin') return '관리자';
+        return 'Free';
+    })();
+
+    const recommendationSubtitle = (() => {
+        if (!user) {
+            return '로그인하고 기업 프로필을 설정하면 우리 회사에 맞는 지원사업을 추천해드립니다.';
+        }
+        if (!isProOrPremium) {
+            return '현재 일반 회원입니다. Pro / 프리미엄으로 업그레이드하면 Gemini 기반 AI 맞춤 추천을 받을 수 있습니다.';
+        }
+        return '기업 프로필과 Gemini 상세 분석을 기반으로 한 AI 맞춤 추천 결과입니다.';
+    })();
+
     // Filter Logic
     const filteredGrants = [...allGrants]
         .filter(grant => {
@@ -248,12 +266,26 @@ export default function Dashboard() {
     return (
         <div className="h-full flex flex-col gap-6 p-4 max-w-5xl mx-auto w-full">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">
                         {user?.displayName ? `${user.displayName}님,` : '사장님,'}
                     </h1>
                     <p className="text-slate-500">오늘의 맞춤 공고를 확인해보세요.</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 text-white">
+                        {roleLabel === '게스트'
+                            ? '로그인 필요'
+                            : roleLabel === 'Free'
+                                ? 'Free 플랜'
+                                : `${roleLabel} 플랜`}
+                    </span>
+                    {isProOrPremium && (
+                        <span className="text-[11px] text-emerald-600 font-medium">
+                            AI 맞춤 추천 활성화
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -284,7 +316,7 @@ export default function Dashboard() {
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">AI Pick</span>
                 </div>
                 <p className="text-xs text-slate-400 mb-4">
-                    Pro / 프리미엄 회원에게는 기업 프로필과 Gemini 분석을 기반으로 한 맞춤 추천을 제공합니다.
+                    {recommendationSubtitle}
                 </p>
 
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
