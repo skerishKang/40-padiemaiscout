@@ -15,7 +15,10 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
+          {/* 홈(/)에서는 스카우터(챗봇)를 기본 진입 화면으로 사용 */}
+          <Route index element={<Chat />} />
+          {/* 기존 공고 대시보드는 /grants 경로로 이동 */}
+          <Route path="grants" element={<Dashboard />} />
           <Route path="chat" element={<Chat />} />
           <Route path="profile" element={<Profile />} />
           <Route path="pricing" element={<Pricing />} />

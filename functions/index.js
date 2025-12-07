@@ -12,6 +12,7 @@ const { initializeApp } = require("firebase-admin/app");
 const {
   getFirestore,
   FieldValue,
+  Timestamp,
 } = require("firebase-admin/firestore");
 // const {getStorage} = require("firebase-admin/storage");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -494,7 +495,8 @@ async function applyBizinfoSchedulerConfigUpdate(updates) {
 
 // --- Bizinfo Scraping Logic (Shared) ---
 async function performBizinfoScraping() {
-  const targetUrl = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/A/74/list.do";
+  // 실제 지원사업 공고 목록 페이지 (검색/필터 포함 메인 리스트)
+  const targetUrl = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do";
 
   try {
     const response = await axios.get(targetUrl);
@@ -502,33 +504,72 @@ async function performBizinfoScraping() {
     const $ = cheerio.load(html);
     const scrapedItems = [];
 
-    $("table.board_list1 tbody tr").each((index, element) => {
+    // 메인 공고 리스트 테이블 구조에 맞춰 파싱
+    // 번호 | 지원분야 | 지원사업명 | 신청기간 | 소관부처·지자체 | 사업수행기관 | 등록일 | 조회수
+    $("div.table_Type_1 table tbody tr").each((index, element) => {
       const tds = $(element).find("td");
-      if (tds.length < 5) {
+      // header row 또는 기타 행 스킵
+      if (tds.length < 8) {
         return;
       }
 
-      const rawTitle = $(tds[1]).text().trim();
-      const titleLink = $(tds[1]).find("a").attr("href") || "";
-      const department = $(tds[2]).text().trim();
-      const date = $(tds[4]).text().trim();
+      const rawTitle = $(tds[2]).text().trim();
+      const titleLink = $(tds[2]).find("a").attr("href") || "";
+      const periodText = $(tds[3]).text().replace(/\s+/g, " ").trim();
+      const department = $(tds[4]).text().trim();
+      const date = $(tds[6]).text().trim(); // 등록일
 
       const title = rawTitle.replace(/\s+/g, " ");
-      if (!title || title.includes("등록된 게시물이 없습니다")) {
+      if (!title) {
         return;
       }
 
-      const link = titleLink.startsWith("http") ?
-        titleLink :
-        "https://www.bizinfo.go.kr" + titleLink;
+      // 상세 페이지 링크를 절대 URL로 변환
+      let link = "";
+      if (titleLink) {
+        if (titleLink.startsWith("http")) {
+          link = titleLink;
+        } else if (titleLink.startsWith("/")) {
+          link = "https://www.bizinfo.go.kr" + titleLink;
+        } else {
+          link = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/" + titleLink;
+        }
+      }
+      if (!link) {
+        return;
+      }
 
-      scrapedItems.push({
+      // 신청기간 문자열에서 마감일(YYYY-MM-DD) 추출해 deadlineTimestamp 생성
+      let deadlineTimestamp = null;
+      if (periodText) {
+        const match = periodText.match(/(\d{4}-\d{2}-\d{2})\s*$/);
+        if (match) {
+          const endDateStr = match[1];
+          const parts = endDateStr.split("-");
+          const parsedDate = new Date(Date.UTC(
+            parseInt(parts[0], 10),
+            parseInt(parts[1], 10) - 1,
+            parseInt(parts[2], 10),
+          ));
+          if (!isNaN(parsedDate.getTime())) {
+            deadlineTimestamp = Timestamp.fromDate(parsedDate);
+          }
+        }
+      }
+
+      const item = {
         title,
         link,
         department,
         date,
+        period: periodText,
         scrapedAt: new Date().toISOString(),
-      });
+      };
+      if (deadlineTimestamp) {
+        item.deadlineTimestamp = deadlineTimestamp;
+      }
+
+      scrapedItems.push(item);
     });
 
     if (scrapedItems.length === 0) {
@@ -558,6 +599,347 @@ async function performBizinfoScraping() {
     throw error;
   }
 }
+
+// --- K-Startup Scraping Logic (Ongoing Biz Notices) ---
+async function performKStartupScraping() {
+  const targetUrl = "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do";
+
+  try {
+    const response = await axios.get(targetUrl);
+    const html = response.data;
+    const $ = cheerio.load(html);
+    const scrapedItems = [];
+
+    // "마감일자 YYYY-MM-DD" 텍스트를 포함하는 리스트 항목을 기준으로 파싱
+    $("li:contains('마감일자')").each((index, element) => {
+      const $el = $(element);
+      const text = $el.text().replace(/\s+/g, " ").trim();
+      if (!text || !text.includes("마감일자")) {
+        return;
+      }
+
+      // 제목 & 링크: a/strong/h4 중 첫 번째 요소 기준
+      const titleElement = $el.find("a, strong, h4").first();
+      const rawTitle = titleElement.text().trim() || text;
+      const title = rawTitle.replace(/\s+/g, " ");
+      if (!title) {
+        return;
+      }
+
+      let href = titleElement.attr("href") || "";
+      let link = "";
+      if (href) {
+        if (href.startsWith("http")) {
+          link = href;
+        } else if (href.startsWith("/")) {
+          link = "https://www.k-startup.go.kr" + href;
+        } else {
+          link = "https://www.k-startup.go.kr" + (href.startsWith("?") ? href : "/" + href);
+        }
+      }
+
+      // 마감일자 추출
+      const deadlineMatch = text.match(/마감일자\s+(\d{4}-\d{2}-\d{2})/);
+      let deadlineTimestamp = null;
+      let periodText = null;
+      if (deadlineMatch) {
+        periodText = deadlineMatch[1];
+        const parts = periodText.split("-");
+        if (parts.length === 3) {
+          const parsedDate = new Date(Date.UTC(
+            parseInt(parts[0], 10),
+            parseInt(parts[1], 10) - 1,
+            parseInt(parts[2], 10),
+          ));
+          if (!isNaN(parsedDate.getTime())) {
+            deadlineTimestamp = Timestamp.fromDate(parsedDate);
+          }
+        }
+      }
+
+      // 기관명 추출: "마감일자 YYYY-MM-DD 기관명 조회" 패턴 기준
+      let department = null;
+      const deptMatch = text.match(/마감일자\s+\d{4}-\d{2}-\d{2}\s+(.+?)\s+조회/);
+      if (deptMatch) {
+        department = deptMatch[1].trim();
+      }
+
+      const item = {
+        title,
+        link,
+        department: department || null,
+        period: periodText,
+        scrapedAt: new Date().toISOString(),
+      };
+      if (deadlineTimestamp) {
+        item.deadlineTimestamp = deadlineTimestamp;
+      }
+
+      scrapedItems.push(item);
+    });
+
+    if (scrapedItems.length === 0) {
+      console.log("No K-Startup items scraped.");
+      return {
+        success: false,
+        message: "K-Startup에서 스크래핑된 공고가 없습니다.",
+        count: 0,
+      };
+    }
+
+    const batch = db.batch();
+    scrapedItems.forEach((item) => {
+      const docRef = db.collection("grants").doc();
+      batch.set(docRef, {
+        ...item,
+        source: "k-startup",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
+
+    return {
+      success: true,
+      message: `K-Startup에서 ${scrapedItems.length}건의 공고를 스크래핑하여 저장했습니다.`,
+      data: scrapedItems,
+      count: scrapedItems.length,
+    };
+  } catch (error) {
+    console.error("K-Startup Scraping Logic Error:", error);
+    throw error;
+  }
+}
+
+// --- Helper: analysisResult 기반 deadlineTimestamp 생성 ---
+function buildDeadlineTimestampFromAnalysis(analysisResult) {
+  if (!analysisResult || !analysisResult.신청기간_종료일) {
+    return null;
+  }
+
+  const deadlineString = analysisResult.신청기간_종료일;
+  console.log("[analyzeScrapedGrantsBatch] Parsing deadline:", deadlineString);
+
+  if (typeof deadlineString !== "string") {
+    return null;
+  }
+
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (!datePattern.test(deadlineString)) {
+    console.log("[analyzeScrapedGrantsBatch] Deadline does not match YYYY-MM-DD:", deadlineString);
+    return null;
+  }
+
+  try {
+    const parts = deadlineString.split("-");
+    const parsedDate = new Date(Date.UTC(
+      parseInt(parts[0], 10),
+      parseInt(parts[1], 10) - 1,
+      parseInt(parts[2], 10),
+    ));
+    if (!isNaN(parsedDate.getTime())) {
+      return Timestamp.fromDate(parsedDate);
+    }
+  } catch (e) {
+    console.error("[analyzeScrapedGrantsBatch] Error while building deadlineTimestamp:", e);
+  }
+
+  return null;
+}
+
+// --- Helper: Web 페이지 텍스트 기반 공고 상세 분석 ---
+async function analyzeGrantDetailWithGemini(rawText) {
+  const apiKeys = getApiKeysFromEnv();
+  if (!apiKeys || apiKeys.length === 0) {
+    console.error("[analyzeGrantDetailWithGemini] No Gemini API keys configured.");
+    return { success: false, error: "NO_API_KEYS" };
+  }
+
+  const prompt = "너는 한국 정부 및 공공기관의 지원사업 공고를 분석하는 전문가야. " +
+    "아래는 웹사이트에서 가져온 지원사업 공고 상세페이지의 텍스트야. " +
+    "이 텍스트를 기반으로 지원사업 정보를 JSON 형태로 정확하게 추출해줘.\n\n" +
+    "[공고문 텍스트 시작]\n" +
+    rawText +
+    "\n[공고문 텍스트 끝]\n\n" +
+    "다음 JSON 스키마에 맞춰 응답해야 해:\n" +
+    "{\n" +
+    '  "사업명": "[사업의 공식 명칭]",\n' +
+    '  "주관기관": "[사업 주관/운영 기관명]",\n' +
+    '  "지원대상_요약": "[지원 대상에 대한 간략한 설명]",\n' +
+    '  "신청자격_상세": "[업력, 소재지, 대표자 요건 등 상세 자격 조건 목록 또는 설명]",\n' +
+    '  "지원내용": "[제공되는 지원 종류 목록 또는 설명]",\n' +
+    '  "지원규모_금액": "[기업당 지원 최대/평균 금액]",\n' +
+    '  "신청기간_시작일": "YYYY-MM-DD 형식의 신청 시작일, 없으면 null",\n' +
+    '  "신청기간_종료일": "YYYY-MM-DD 형식의 신청 마감일, 없으면 null",\n' +
+    '  "신청방법": "[온라인 접수 URL 또는 이메일 주소 등]",\n' +
+    '  "지원기간_협약기간": "[실제 지원 기간 또는 협약 기간]",\n' +
+    '  "신청제외대상_요약": "[주요 신청 제외 조건 요약]",\n' +
+    '  "사업분야_키워드": ["[사업 관련 핵심 키워드 목록]"]\n' +
+    "}\n\n" +
+    "중요: '신청기간_시작일'과 '신청기간_종료일'은 반드시 'YYYY-MM-DD' 형식으로 반환해야 해. " +
+    "문서에 정보가 없으면 null로 설정해. 반드시 순수 JSON만 응답하고, 설명 문장은 포함하지 마.";
+
+  let lastError = null;
+  for (const apiKey of apiKeys) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      let cleaned = text.trim();
+      const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      if (codeBlockMatch) {
+        cleaned = codeBlockMatch[1].trim();
+      }
+      const analysisResult = JSON.parse(cleaned);
+      return {
+        success: true,
+        extractedTextRaw: rawText,
+        analysisResult,
+        rawResponse: text,
+      };
+    } catch (err) {
+      lastError = err;
+      const message = err && err.message ? err.message.toLowerCase() : "";
+      console.error("[analyzeGrantDetailWithGemini] Gemini error:", err);
+      if (!message.includes("quota")) {
+        break;
+      }
+    }
+  }
+
+  return {
+    success: false,
+    error: lastError ? lastError.toString() : "UNKNOWN_ERROR",
+  };
+}
+
+// --- Scraped Grants Batch Analyzer ---
+exports.analyzeScrapedGrantsBatch = functions.https.onCall(async (request, context) => {
+  const payload = request && typeof request === "object" && "data" in request ?
+    request.data :
+    request;
+
+  const batchSizeRaw = payload && typeof payload.batchSize === "number" ? payload.batchSize : 5;
+  const batchSize = Math.max(1, Math.min(10, Math.round(batchSizeRaw)));
+
+  const allowedSources = Array.isArray(payload && payload.sources) && (payload.sources.length > 0)
+    ? payload.sources.filter((s) => s === "bizinfo" || s === "k-startup")
+    : ["bizinfo", "k-startup"];
+
+  try {
+    const queryRef = db.collection("grants")
+      .where("source", "in", allowedSources)
+      .orderBy("createdAt", "desc")
+      .limit(50);
+
+    const snapshot = await queryRef.get();
+    if (snapshot.empty) {
+      return {
+        success: false,
+        message: "해당 source에서 공고를 찾을 수 없습니다.",
+        processed: 0,
+        results: [],
+      };
+    }
+
+    const targets = [];
+    snapshot.forEach((docSnap) => {
+      if (targets.length >= batchSize) {
+        return;
+      }
+      const data = docSnap.data() || {};
+      if (data.analysisResult) {
+        return;
+      }
+      if (!data.link) {
+        return;
+      }
+      targets.push({ doc: docSnap, data });
+    });
+
+    if (targets.length === 0) {
+      return {
+        success: false,
+        message: "분석이 필요한 공고가 없습니다.",
+        processed: 0,
+        results: [],
+      };
+    }
+
+    const results = [];
+    for (const target of targets) {
+      const { doc, data } = target;
+      const docRef = doc.ref;
+      const grantId = doc.id;
+      let status = "processed";
+      let errorMessage = null;
+
+      try {
+        const res = await axios.get(data.link, { timeout: 10000 });
+        const html = res.data;
+        const $ = cheerio.load(html);
+        const bodyText = "" + $("body").text().replace(/\s+/g, " ").trim();
+
+        if (!bodyText || bodyText.length < 200) {
+          status = "skipped";
+          errorMessage = "본문 텍스트가 너무 짧아서 분석을 건너뜁니다.";
+        } else {
+          const analysis = await analyzeGrantDetailWithGemini(bodyText);
+          if (!analysis.success || !analysis.analysisResult) {
+            status = "error";
+            errorMessage = "Gemini 분석 실패";
+          } else {
+            const analysisResult = analysis.analysisResult;
+            const deadlineTimestamp = buildDeadlineTimestampFromAnalysis(analysisResult);
+            const updateData = {
+              analysisResult,
+              analysisStatus: "analysis_success",
+              extractedTextRaw: analysis.extractedTextRaw || "",
+              analyzedAt: FieldValue.serverTimestamp(),
+            };
+            if (deadlineTimestamp) {
+              updateData.deadlineTimestamp = deadlineTimestamp;
+            }
+            await docRef.set(updateData, { merge: true });
+          }
+        }
+      } catch (err) {
+        console.error("[analyzeScrapedGrantsBatch] Error processing grant", grantId, err);
+        status = "error";
+        errorMessage = err && err.message ? err.message : String(err || "");
+        try {
+          await docRef.set({
+            analysisStatus: "analysis_failed",
+            analysisError: errorMessage,
+            analyzedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+        } catch (updateErr) {
+          console.error("[analyzeScrapedGrantsBatch] Failed to update error status", grantId, updateErr);
+        }
+      }
+
+      results.push({
+        id: grantId,
+        status,
+        error: errorMessage,
+      });
+    }
+
+    const processedCount = results.filter((r) => r.status === "processed").length;
+    return {
+      success: true,
+      message: `${processedCount}건의 공고를 상세 분석했습니다.`,
+      processed: processedCount,
+      results,
+    };
+  } catch (error) {
+    console.error("[analyzeScrapedGrantsBatch] Fatal error:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "스크랩된 공고 상세 분석 중 오류가 발생했습니다: " + (error && error.message ? error.message : String(error)),
+    );
+  }
+});
 
 exports.getBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
   try {
@@ -628,6 +1010,19 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
     throw new functions.https.HttpsError(
       "internal",
       "스크래핑 중 오류가 발생했습니다: " + error.message,
+    );
+  }
+});
+
+exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
+  try {
+    const result = await performKStartupScraping();
+    return result;
+  } catch (error) {
+    console.error("K-Startup Scraping Error:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "K-Startup 스크래핑 중 오류가 발생했습니다: " + error.message,
     );
   }
 });
