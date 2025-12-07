@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Building2, Calendar, DollarSign, Users, MapPin, Award, Save } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function Profile() {
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -79,12 +77,7 @@ export default function Profile() {
         setLoading(true);
         try {
             await setDoc(doc(db, 'users', user.uid), formData, { merge: true });
-            setMessage('저장되었습니다! 대시보드로 이동합니다...');
-
-            // Navigate to Dashboard after a short delay
-            setTimeout(() => {
-                navigate('/');
-            }, 1000);
+            setMessage('저장되었습니다.');
         } catch (error) {
             console.error("Save error:", error);
             setMessage('저장에 실패했습니다.');

@@ -86,8 +86,8 @@ export default function Layout() {
                     </button>
 
                     <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900 tracking-tight">
-                        <img src="/logo-main.png" alt="PadiemScout" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
-                        <span className="hidden sm:inline bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">PadiemScout</span>
+                        <img src="/logo-main.png" alt="padiemaiscout" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
+                        <span className="hidden sm:inline bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">padiemaiscout</span>
                     </Link>
                 </div>
 
