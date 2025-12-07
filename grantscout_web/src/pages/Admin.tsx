@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Users, CreditCard, Database, RefreshCw, Clock } from 'lucide-react';
 import { db, functions } from '../lib/firebase';
 import { collection, getCountFromServer, query, where } from 'firebase/firestore';
@@ -13,10 +14,13 @@ interface SchedulerConfig {
 }
 
 export default function Admin() {
+    const navigate = useNavigate();
     const [stats, setStats] = useState({ totalUsers: 0, proUsers: 0 });
     const [grantStats, setGrantStats] = useState({ totalGrants: 0, bizinfoGrants: 0, userUploadGrants: 0 });
     const [analysisStats, setAnalysisStats] = useState({ scrapedGrants: 0, analyzedScrapedGrants: 0, pendingScrapedGrants: 0 });
-    const [syncing, setSyncing] = useState(false);
+    const [bizinfoSyncing, setBizinfoSyncing] = useState(false);
+    const [kStartupSyncing, setKStartupSyncing] = useState(false);
+    const [analyzeSyncing, setAnalyzeSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState<string | null>(null);
     const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig | null>(null);
     const [loadingScheduler, setLoadingScheduler] = useState(false);
@@ -24,7 +28,7 @@ export default function Admin() {
     const [schedulerMessage, setSchedulerMessage] = useState<string | null>(null);
 
     const handleSyncBizinfo = async () => {
-        setSyncing(true);
+        setBizinfoSyncing(true);
         setSyncResult(null);
         try {
             const scrapeBizinfo = httpsCallable(functions, 'scrapeBizinfo');
@@ -35,12 +39,12 @@ export default function Admin() {
             console.error("Bizinfo sync failed:", error);
             setSyncResult(`[기업마당] 실패: ${error.message}`);
         } finally {
-            setSyncing(false);
+            setBizinfoSyncing(false);
         }
     };
 
     const handleSyncKStartup = async () => {
-        setSyncing(true);
+        setKStartupSyncing(true);
         setSyncResult(null);
         try {
             const scrapeKStartup = httpsCallable(functions, 'scrapeKStartup');
@@ -51,12 +55,12 @@ export default function Admin() {
             console.error("K-Startup sync failed:", error);
             setSyncResult(`[#K-Startup] 실패: ${error.message}`);
         } finally {
-            setSyncing(false);
+            setKStartupSyncing(false);
         }
     };
 
     const handleAnalyzeScrapedGrants = async () => {
-        setSyncing(true);
+        setAnalyzeSyncing(true);
         setSyncResult(null);
         try {
             const analyzeBatch = httpsCallable(functions, 'analyzeScrapedGrantsBatch');
@@ -72,7 +76,7 @@ export default function Admin() {
             console.error('Analyze scraped grants failed:', error);
             setSyncResult(`[상세분석] 실패: ${error.message}`);
         } finally {
-            setSyncing(false);
+            setAnalyzeSyncing(false);
         }
     };
 
@@ -275,10 +279,10 @@ export default function Admin() {
                         <div className="flex flex-wrap gap-2 justify-end">
                             <button
                                 onClick={handleSyncBizinfo}
-                                disabled={syncing}
+                                disabled={bizinfoSyncing}
                                 className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {syncing ? (
+                                {bizinfoSyncing ? (
                                     <>
                                         <RefreshCw size={18} className="animate-spin" />
                                         동기화 중...
@@ -292,10 +296,10 @@ export default function Admin() {
                             </button>
                             <button
                                 onClick={handleSyncKStartup}
-                                disabled={syncing}
+                                disabled={kStartupSyncing}
                                 className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {syncing ? (
+                                {kStartupSyncing ? (
                                     <>
                                         <RefreshCw size={18} className="animate-spin" />
                                         동기화 중...
@@ -309,10 +313,10 @@ export default function Admin() {
                             </button>
                             <button
                                 onClick={handleAnalyzeScrapedGrants}
-                                disabled={syncing}
+                                disabled={analyzeSyncing}
                                 className="px-4 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {syncing ? (
+                                {analyzeSyncing ? (
                                     <>
                                         <RefreshCw size={18} className="animate-spin" />
                                         상세분석 중...
@@ -323,6 +327,22 @@ export default function Admin() {
                                         상세 분석(프리미엄)
                                     </>
                                 )}
+                            </button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/grants?source=bizinfo')}
+                                className="px-3 py-1 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
+                            >
+                                기업마당 공고 보기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/grants?source=k-startup')}
+                                className="px-3 py-1 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
+                            >
+                                K-Startup 공고 보기
                             </button>
                         </div>
                     </div>

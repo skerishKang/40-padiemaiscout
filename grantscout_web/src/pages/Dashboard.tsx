@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Filter } from 'lucide-react';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth, functions } from '../lib/firebase';
@@ -28,6 +29,7 @@ interface Grant {
 }
 
 export default function Dashboard() {
+    const location = useLocation();
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [allGrants, setAllGrants] = useState<Grant[]>([]);
@@ -85,6 +87,15 @@ export default function Dashboard() {
 
         fetchGrants();
     }, []);
+
+    // URL 쿼리 파라미터(source)를 기반으로 초기 sourceFilter 설정
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const sourceParam = params.get('source');
+        if (sourceParam === 'all' || sourceParam === 'bizinfo' || sourceParam === 'k-startup' || sourceParam === 'user-upload') {
+            setSourceFilter(sourceParam as 'all' | 'bizinfo' | 'k-startup' | 'user-upload');
+        }
+    }, [location.search]);
 
     // Pro 유저를 위한 실제 추천 로직 (Gemini checkSuitability 사용)
     useEffect(() => {
