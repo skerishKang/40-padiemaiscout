@@ -8,6 +8,7 @@
 client_secret*.json*
 google-services.json
 firebase-adminsdk*.json
+*firebase-adminsdk*.json
 service-account*.json
 
 # Flutter/Dart
