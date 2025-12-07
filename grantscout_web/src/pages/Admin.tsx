@@ -14,6 +14,8 @@ interface SchedulerConfig {
 
 export default function Admin() {
     const [stats, setStats] = useState({ totalUsers: 0, proUsers: 0 });
+    const [grantStats, setGrantStats] = useState({ totalGrants: 0, bizinfoGrants: 0, userUploadGrants: 0 });
+    const [analysisStats, setAnalysisStats] = useState({ scrapedGrants: 0, analyzedScrapedGrants: 0, pendingScrapedGrants: 0 });
     const [syncing, setSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState<string | null>(null);
     const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig | null>(null);
@@ -21,17 +23,54 @@ export default function Admin() {
     const [savingScheduler, setSavingScheduler] = useState(false);
     const [schedulerMessage, setSchedulerMessage] = useState<string | null>(null);
 
-    const handleSync = async () => {
+    const handleSyncBizinfo = async () => {
         setSyncing(true);
         setSyncResult(null);
         try {
             const scrapeBizinfo = httpsCallable(functions, 'scrapeBizinfo');
             const result = await scrapeBizinfo();
             const data = result.data as any;
-            setSyncResult(`성공: ${data.message}`);
+            setSyncResult(`[기업마당] 성공: ${data.message}`);
         } catch (error: any) {
-            console.error("Sync failed:", error);
-            setSyncResult(`실패: ${error.message}`);
+            console.error("Bizinfo sync failed:", error);
+            setSyncResult(`[기업마당] 실패: ${error.message}`);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const handleSyncKStartup = async () => {
+        setSyncing(true);
+        setSyncResult(null);
+        try {
+            const scrapeKStartup = httpsCallable(functions, 'scrapeKStartup');
+            const result = await scrapeKStartup();
+            const data = result.data as any;
+            setSyncResult(`[#K-Startup] 성공: ${data.message}`);
+        } catch (error: any) {
+            console.error("K-Startup sync failed:", error);
+            setSyncResult(`[#K-Startup] 실패: ${error.message}`);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const handleAnalyzeScrapedGrants = async () => {
+        setSyncing(true);
+        setSyncResult(null);
+        try {
+            const analyzeBatch = httpsCallable(functions, 'analyzeScrapedGrantsBatch');
+            const result = await analyzeBatch({ batchSize: 5 });
+            const data = result.data as any;
+            const prefix = '[상세분석]';
+            if (data && data.success) {
+                setSyncResult(`${prefix} 성공: ${data.message || ''}`);
+            } else {
+                setSyncResult(`${prefix} 실패: ${(data && data.message) || '알 수 없는 오류'}`);
+            }
+        } catch (error: any) {
+            console.error('Analyze scraped grants failed:', error);
+            setSyncResult(`[상세분석] 실패: ${error.message}`);
         } finally {
             setSyncing(false);
         }
@@ -117,6 +156,41 @@ export default function Admin() {
                     totalUsers: totalSnapshot.data().count,
                     proUsers: proSnapshot.data().count
                 });
+
+                // 공고 통계 (grants 컬렉션)
+                const grantsColl = collection(db, 'grants');
+                const totalGrantsSnap = await getCountFromServer(grantsColl);
+
+                const bizinfoQuery = query(grantsColl, where('source', '==', 'bizinfo'));
+                const bizinfoSnap = await getCountFromServer(bizinfoQuery);
+
+                const userUploadQuery = query(grantsColl, where('source', '==', 'user-upload'));
+                const userUploadSnap = await getCountFromServer(userUploadQuery);
+
+                const kStartupQuery = query(grantsColl, where('source', '==', 'k-startup'));
+                const kStartupSnap = await getCountFromServer(kStartupQuery);
+
+                const bizinfoAnalyzedQuery = query(grantsColl, where('source', '==', 'bizinfo'), where('analysisResult', '!=', null));
+                const bizinfoAnalyzedSnap = await getCountFromServer(bizinfoAnalyzedQuery);
+
+                const kStartupAnalyzedQuery = query(grantsColl, where('source', '==', 'k-startup'), where('analysisResult', '!=', null));
+                const kStartupAnalyzedSnap = await getCountFromServer(kStartupAnalyzedQuery);
+
+                setGrantStats({
+                    totalGrants: totalGrantsSnap.data().count,
+                    bizinfoGrants: bizinfoSnap.data().count,
+                    userUploadGrants: userUploadSnap.data().count,
+                });
+
+                const scrapedGrants = bizinfoSnap.data().count + kStartupSnap.data().count;
+                const analyzedScrapedGrants = bizinfoAnalyzedSnap.data().count + kStartupAnalyzedSnap.data().count;
+                const pendingScrapedGrants = Math.max(0, scrapedGrants - analyzedScrapedGrants);
+
+                setAnalysisStats({
+                    scrapedGrants,
+                    analyzedScrapedGrants,
+                    pendingScrapedGrants,
+                });
             } catch (error) {
                 console.error("Error fetching stats:", error);
             }
@@ -139,10 +213,21 @@ export default function Admin() {
                     <h1 className="text-2xl font-bold text-slate-900">관리자 대시보드</h1>
                     <p className="text-slate-500">시스템 관리 및 데이터 수집을 수행합니다.</p>
                 </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-green-50 text-green-600 rounded-xl">
+                        <Database size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm text-slate-500 font-medium">공고 통계</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                            총 {grantStats.totalGrants}건 · 기업마당 {grantStats.bizinfoGrants}건 · PDF 업로드 {grantStats.userUploadGrants}건
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-3 gap-4 mb-8">
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
                         <Users size={24} />
@@ -161,6 +246,17 @@ export default function Admin() {
                         <p className="text-2xl font-bold text-slate-900">{stats.proUsers}명</p>
                     </div>
                 </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                        <Database size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm text-slate-500 font-medium">상세 분석 현황</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                            분석 완료 {analysisStats.analyzedScrapedGrants}건 · 미분석 {analysisStats.pendingScrapedGrants}건
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6">
@@ -173,26 +269,62 @@ export default function Admin() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-900">데이터 수집 및 동기화</h3>
-                                <p className="text-sm text-slate-500">외부 사이트(기업마당 등)에서 공고를 수집합니다.</p>
+                                <p className="text-sm text-slate-500">외부 사이트(기업마당, K-Startup 등)에서 공고를 수집합니다.</p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleSync}
-                            disabled={syncing}
-                            className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                            {syncing ? (
-                                <>
-                                    <RefreshCw size={18} className="animate-spin" />
-                                    동기화 중...
-                                </>
-                            ) : (
-                                <>
-                                    <RefreshCw size={18} />
-                                    데이터 동기화
-                                </>
-                            )}
-                        </button>
+                        <div className="flex flex-wrap gap-2 justify-end">
+                            <button
+                                onClick={handleSyncBizinfo}
+                                disabled={syncing}
+                                className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {syncing ? (
+                                    <>
+                                        <RefreshCw size={18} className="animate-spin" />
+                                        동기화 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={18} />
+                                        기업마당 동기화
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleSyncKStartup}
+                                disabled={syncing}
+                                className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {syncing ? (
+                                    <>
+                                        <RefreshCw size={18} className="animate-spin" />
+                                        동기화 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={18} />
+                                        K-Startup 동기화
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleAnalyzeScrapedGrants}
+                                disabled={syncing}
+                                className="px-4 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {syncing ? (
+                                    <>
+                                        <RefreshCw size={18} className="animate-spin" />
+                                        상세분석 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={18} />
+                                        상세 분석(프리미엄)
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                     {syncResult && (
                         <div className={`p-4 rounded-xl text-sm ${syncResult.includes('성공') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
@@ -201,6 +333,7 @@ export default function Admin() {
                     )}
                 </div>
 
+                {/* Scheduler Section */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mt-6">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
@@ -227,10 +360,11 @@ export default function Admin() {
                                 <span className="text-sm text-slate-700">스케줄러 활성화</span>
                                 <button
                                     type="button"
-                                    onClick={() => setSchedulerConfig({
-                                        ...schedulerConfig,
-                                        enabled: !schedulerConfig.enabled,
-                                    })}
+                                    onClick={() =>
+                                        setSchedulerConfig((prev) =>
+                                            prev ? { ...prev, enabled: !prev.enabled } : prev,
+                                        )
+                                    }
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${schedulerConfig.enabled ? 'bg-green-500' : 'bg-slate-300'}`}
                                 >
                                     <span
@@ -247,10 +381,13 @@ export default function Admin() {
                                         min={15}
                                         max={1440}
                                         value={schedulerConfig.intervalMinutes}
-                                        onChange={(e) => setSchedulerConfig({
-                                            ...schedulerConfig,
-                                            intervalMinutes: Number(e.target.value) || 0,
-                                        })}
+                                        onChange={(e) =>
+                                            setSchedulerConfig((prev) =>
+                                                prev
+                                                    ? { ...prev, intervalMinutes: Number(e.target.value) || 0 }
+                                                    : prev,
+                                            )
+                                        }
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                     />
                                 </div>

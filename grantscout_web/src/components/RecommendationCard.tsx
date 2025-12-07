@@ -19,9 +19,17 @@ export default function RecommendationCard({ grant, onClick }: RecommendationCar
     // Calculate D-Day
     const today = new Date();
     const end = new Date(grant.endDate);
-    const diffTime = end.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const dDay = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
+    let diffDays: number | null = null;
+    let dDay: string;
+    let isDateValid = !isNaN(end.getTime());
+    if (isDateValid) {
+        const diffTime = end.getTime() - today.getTime();
+        diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        dDay = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
+    } else {
+        // 날짜 형식이 아닐 경우(예: '상시')에는 그대로 표시하거나 기본값 사용
+        dDay = grant.endDate || '상시';
+    }
 
     return (
         <div
@@ -37,8 +45,13 @@ export default function RecommendationCard({ grant, onClick }: RecommendationCar
                     <span className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-full shadow-sm">
                         추천
                     </span>
-                    <span className={`px-2 py-1 text-xs font-bold rounded-full ${diffDays <= 7 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
-                        }`}>
+                    <span
+                        className={`px-2 py-1 text-xs font-bold rounded-full ${
+                            isDateValid && diffDays !== null && diffDays <= 7
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-slate-100 text-slate-600'
+                        }`}
+                    >
                         {dDay}
                     </span>
                 </div>

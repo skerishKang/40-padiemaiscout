@@ -46,11 +46,18 @@ export default function Layout() {
     }, []);
 
     const navItems = [
-        { icon: LayoutDashboard, label: '공고', to: '/' },
-        { icon: MessageSquare, label: '스카우터', to: '/chat' },
+        { icon: MessageSquare, label: '스카우터', to: '/' },
+        { icon: LayoutDashboard, label: '공고', to: '/grants' },
         { icon: FileText, label: '기업 프로필', to: '/profile' },
         { icon: CreditCard, label: '멤버십', to: '/pricing' },
     ];
+
+    const isNavActive = (to: string) => {
+        if (to === '/') {
+            return location.pathname === '/' || location.pathname === '/chat';
+        }
+        return location.pathname === to;
+    };
 
     // Admin Check
     const isAdmin = user?.email && [
@@ -196,7 +203,7 @@ export default function Layout() {
                             <SidebarItem
                                 key={item.to}
                                 {...item}
-                                active={location.pathname === item.to}
+                                active={isNavActive(item.to)}
                             />
                         ))}
                     </nav>
@@ -228,7 +235,7 @@ export default function Layout() {
                                     <SidebarItem
                                         key={item.to}
                                         {...item}
-                                        active={location.pathname === item.to}
+                                        active={isNavActive(item.to)}
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     />
                                 ))}
@@ -276,7 +283,7 @@ export default function Layout() {
                             <div className="bg-white/25 backdrop-blur-2xl border-t border-white/40 px-6 py-4 flex justify-between items-center shrink-0 z-40 pb-8">
                                 {navItems.map((item) => {
                                     const Icon = item.icon;
-                                    const isActive = location.pathname === item.to;
+                                    const isActive = isNavActive(item.to);
                                     return (
                                         <Link key={item.to} to={item.to} className="flex flex-col items-center gap-1.5 group">
                                             <div className={clsx(
