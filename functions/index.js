@@ -29,9 +29,10 @@ const db = getFirestore();
 
 setGlobalOptions({ region: "asia-northeast3" });
 
-exports.helloWorld = (req, res) => {
+// 기본 예제용 HTTP 함수는 v2 런타임에서도 인식 가능한 onRequest 래퍼를 사용하도록 수정
+exports.helloWorld = functions.https.onRequest((req, res) => {
   res.send("Hello from Firebase!");
-};
+});
 
 // --- Helper Function: 환경 변수에서 API 키 목록 가져오기 ---
 function getApiKeysFromEnv() {
