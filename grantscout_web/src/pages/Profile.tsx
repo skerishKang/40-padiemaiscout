@@ -93,6 +93,44 @@ export default function Profile() {
         }
     };
 
+    // 추천 준비도 체크리스트용 파생 상태
+    const readinessItems = [
+        {
+            key: 'industry',
+            label: '업종',
+            done: !!formData.industry,
+        },
+        {
+            key: 'stage',
+            label: '업력 (창업일 기준)',
+            done: !!formData.stage,
+        },
+        {
+            key: 'revenue',
+            label: '연 매출액',
+            done: !!formData.revenue,
+        },
+        {
+            key: 'employees',
+            label: '직원 수',
+            done: !!formData.employees,
+        },
+        {
+            key: 'location',
+            label: '소재지',
+            done: !!formData.location,
+        },
+        {
+            key: 'certifications',
+            label: '보유 인증(있다면 가산점)',
+            done: (formData.certifications?.length || 0) > 0,
+        },
+    ];
+
+    const completedReadinessCount = readinessItems.filter(item => item.done).length;
+    const totalReadinessCount = readinessItems.length;
+    const readinessRatio = totalReadinessCount > 0 ? completedReadinessCount / totalReadinessCount : 0;
+
     return (
         <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:p-8">
             <div className="mb-8 flex justify-between items-center">
@@ -128,6 +166,50 @@ export default function Profile() {
             </div>
 
             <div className="space-y-6">
+                {/* 추천 준비도 체크리스트 */}
+                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/80">
+                    <div className="flex items-center justify-between mb-3 gap-4">
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500">추천 준비도 체크리스트</p>
+                            <p className="text-xs text-slate-600 mt-1">
+                                AI가 우리 회사를 더 잘 이해할 수 있도록 아래 항목들을 채워주세요.
+                            </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                            <p className="text-xs font-medium text-slate-500">
+                                {completedReadinessCount}/{totalReadinessCount} 단계 완료
+                            </p>
+                            <div className="mt-1 w-24 h-2 rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                    className="h-full rounded-full bg-blue-500 transition-all"
+                                    style={{ width: `${Math.max(8, readinessRatio * 100)}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {readinessItems.map(item => (
+                            <div
+                                key={item.key}
+                                className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs border ${item.done
+                                    ? 'bg-blue-50 border-blue-100 text-blue-800'
+                                    : 'bg-white border-slate-200 text-slate-600'
+                                    }`}
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <span
+                                        className={`inline-block w-1.5 h-1.5 rounded-full ${item.done ? 'bg-blue-500' : 'bg-slate-300'}`}
+                                    />
+                                    {item.label}
+                                </span>
+                                <span className={item.done ? 'text-[10px] font-semibold text-blue-700' : 'text-[10px] text-slate-400'}>
+                                    {item.done ? '완료' : '입력 필요'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Industry */}
                 <div>
                     <label
