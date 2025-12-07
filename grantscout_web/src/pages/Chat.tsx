@@ -161,6 +161,8 @@ export default function Chat() {
         setInput('');
         setIsLoading(true);
 
+        let hadError = false;
+
         try {
             let userPrompt = input.trim();
             let fileData = undefined as { mimeType: string; data: string } | undefined;
@@ -215,17 +217,23 @@ export default function Chat() {
             setMessages(prev => [...prev, aiMessage]);
         } catch (error) {
             console.error("Chat Error:", error);
+            hadError = true;
+            // 사용자가 방금 보낸 내용을 입력창에 다시 채워 재시도할 수 있도록 복원
+            setInput(userMessage.text);
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'ai',
-                text: "죄송합니다. 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                text: "죄송합니다. 문서를 분석하는 중 오류가 발생했습니다.\n\n잠시 후 다시 시도해 주세요. 입력창에 방금 보낸 내용을 다시 채워두었으니, 수정 후 상단의 전송 버튼을 눌러 재시도할 수 있습니다.",
                 timestamp: new Date(),
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
-            setAttachedFile(null);
-            if (fileInputRef.current) fileInputRef.current.value = '';
+            // 오류가 없는 경우에만 첨부 파일 초기화
+            if (!hadError) {
+                setAttachedFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }
         }
     };
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Users, CreditCard, Database, RefreshCw, Clock } from 'lucide-react';
 import { db, functions } from '../lib/firebase';
-import { collection, getCountFromServer, query, where } from 'firebase/firestore';
+import { collection, getCountFromServer, query, where, getDocs, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 interface SchedulerConfig {
@@ -11,6 +11,15 @@ interface SchedulerConfig {
     lastRunAt?: string | null;
     lastRunResult?: string | null;
     lastRunError?: string | null;
+}
+
+interface AdminUser {
+    id: string;
+    email?: string;
+    displayName?: string;
+    role?: string;
+    createdAt?: any;
+    lastLogin?: any;
 }
 
 export default function Admin() {
@@ -26,6 +35,9 @@ export default function Admin() {
     const [loadingScheduler, setLoadingScheduler] = useState(false);
     const [savingScheduler, setSavingScheduler] = useState(false);
     const [schedulerMessage, setSchedulerMessage] = useState<string | null>(null);
+    const [users, setUsers] = useState<AdminUser[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
     const handleSyncBizinfo = async () => {
         setBizinfoSyncing(true);
@@ -137,6 +149,54 @@ export default function Admin() {
         }
     };
 
+    const fetchUsers = async () => {
+        setLoadingUsers(true);
+        try {
+            const usersColl = collection(db, 'users');
+            const usersQuery = query(usersColl, orderBy('createdAt', 'desc'), limit(100));
+            const snapshot = await getDocs(usersQuery);
+            const list: AdminUser[] = snapshot.docs.map((docSnap) => {
+                const data = docSnap.data() as any;
+                return {
+                    id: docSnap.id,
+                    email: data.email || '',
+                    displayName: data.displayName || '',
+                    role: data.role || 'free',
+                    createdAt: data.createdAt,
+                    lastLogin: data.lastLogin,
+                };
+            });
+            setUsers(list);
+        } catch (error) {
+            console.error('Failed to fetch users:', error);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    const handleChangeUserRole = async (userId: string, newRole: string) => {
+        const labelMap: Record<string, string> = {
+            free: '일반',
+            pro: 'Pro',
+            premium: 'Premium',
+            admin: '관리자',
+        };
+        const label = labelMap[newRole] || newRole;
+        if (!window.confirm(`등급을 ${label}(으)로 변경하시겠습니까?`)) return;
+
+        setUpdatingUserId(userId);
+        try {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, { role: newRole });
+            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+        } catch (error) {
+            console.error('Failed to update user role:', error);
+            alert('등급 변경 중 오류가 발생했습니다.');
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
     const formatLastRunAt = (value?: string | null) => {
         if (!value) return '-';
         const date = new Date(value);
@@ -202,6 +262,7 @@ export default function Admin() {
         const init = async () => {
             await fetchStats();
             await fetchSchedulerConfig();
+            await fetchUsers();
         };
 
         init();
@@ -451,11 +512,82 @@ export default function Admin() {
                     )}
                 </div>
 
-                {/* Placeholder for other admin features */}
-                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-12 flex flex-col items-center justify-center text-slate-400 border-dashed">
-                    <ShieldAlert size={48} className="mb-4 opacity-20" />
-                    <p className="text-lg font-medium">추가 관리 기능 준비 중...</p>
-                    <p className="text-sm">유저 관리, 결제 내역 확인 등의 기능이 추가될 예정입니다.</p>
+                {/* User Management Section */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">유저 관리</h3>
+                            <p className="text-xs text-slate-500 mt-1">가입한 유저의 등급을 조정하고 상태를 확인합니다.</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={fetchUsers}
+                            disabled={loadingUsers}
+                            className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {loadingUsers ? '불러오는 중...' : '새로고침'}
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto -mx-3">
+                        <table className="min-w-full text-sm text-slate-700">
+                            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                                <tr>
+                                    <th className="px-3 py-2 text-left">사용자</th>
+                                    <th className="px-3 py-2 text-left">이메일</th>
+                                    <th className="px-3 py-2 text-left">등급</th>
+                                    <th className="px-3 py-2 text-left">최근 로그인</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loadingUsers ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
+                                            유저 목록을 불러오는 중입니다...
+                                        </td>
+                                    </tr>
+                                ) : users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
+                                            가입된 유저가 없습니다.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    users.map((u) => (
+                                        <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50">
+                                            <td className="px-3 py-2">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-slate-900">
+                                                        {u.displayName || u.email || '(이름 없음)'}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-400">ID: {u.id}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-slate-600">{u.email || '—'}</td>
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={u.role || 'free'}
+                                                    onChange={(e) => handleChangeUserRole(u.id, e.target.value)}
+                                                    disabled={updatingUserId === u.id}
+                                                    className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white"
+                                                >
+                                                    <option value="free">일반</option>
+                                                    <option value="pro">Pro</option>
+                                                    <option value="premium">Premium</option>
+                                                    <option value="admin">관리자</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-slate-500">
+                                                {u.lastLogin && (u.lastLogin as any).toDate
+                                                    ? (u.lastLogin as any).toDate().toLocaleDateString('ko-KR')
+                                                    : '—'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
