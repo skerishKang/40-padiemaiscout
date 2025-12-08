@@ -13,9 +13,10 @@ interface Grant {
 interface RecommendationCardProps {
     grant: Grant;
     onClick: () => void;
+    onAskAi?: () => void;
 }
 
-export default function RecommendationCard({ grant, onClick }: RecommendationCardProps) {
+export default function RecommendationCard({ grant, onClick, onAskAi }: RecommendationCardProps) {
     // Calculate D-Day
     const today = new Date();
     const end = new Date(grant.endDate);
@@ -93,8 +94,22 @@ export default function RecommendationCard({ grant, onClick }: RecommendationCar
                     <span className="text-xs text-slate-400">
                         ~ {grant.endDate} 마감
                     </span>
-                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
-                        <ArrowRight size={16} />
+                    <div className="flex items-center gap-2">
+                        {onAskAi && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAskAi();
+                                }}
+                                className="px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100 hover:bg-blue-100"
+                            >
+                                AI 분석
+                            </button>
+                        )}
+                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
+                            <ArrowRight size={16} />
+                        </div>
                     </div>
                 </div>
             </div>

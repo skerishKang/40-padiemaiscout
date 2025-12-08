@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { collection, query, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth, functions } from '../lib/firebase';
@@ -30,6 +30,7 @@ interface Grant {
 
 export default function Dashboard() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [allGrants, setAllGrants] = useState<Grant[]>([]);
@@ -190,6 +191,23 @@ export default function Dashboard() {
         return diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
     };
 
+    const getDeadlineBadgeLabel = (grant: Grant) => {
+        const dday = calculateDday(grant.deadlineTimestamp);
+        const endLabel = getGrantEndDateLabel(grant);
+
+        // 마감 정보가 없으면 상시로 표시
+        if (!grant.deadlineTimestamp && (!endLabel || endLabel === '상시')) {
+            return '상시';
+        }
+
+        // 상시 공고인 경우 그대로 표시
+        if (endLabel === '상시') {
+            return '상시';
+        }
+
+        return `${endLabel} (${dday || 'D-?'})`;
+    };
+
     const getSourceBadge = (source?: string) => {
         switch (source) {
             case 'bizinfo':
@@ -227,6 +245,37 @@ export default function Dashboard() {
             return;
         }
         alert(`공고 클릭: ${getGrantTitle(grant)}`);
+    };
+
+    const buildGrantAiPrompt = (grant: Grant) => {
+        const title = getGrantTitle(grant);
+        const department = getGrantDepartment(grant);
+        const endLabel = getGrantEndDateLabel(grant);
+        const dday = calculateDday(grant.deadlineTimestamp);
+        const link = grant.link || '';
+
+        const lines = [
+            '다음 지원사업 공고를 분석해줘.',
+            '',
+            `제목: ${title}`,
+            `소관기관/주관기관: ${department}`,
+            `신청 마감: ${endLabel}${dday ? ` (${dday})` : ''}`,
+            link ? `공고 링크: ${link}` : '공고 링크: (링크 없음)',
+            '',
+            '우리 회사가 이 공고에 지원 가능한지, 가능성과 이유, 준비해야 할 것들을 단계별로 정리해서 알려줘.',
+        ];
+
+        return lines.join('\n');
+    };
+
+    const handleAskAiForGrant = (grant: Grant) => {
+        const prompt = buildGrantAiPrompt(grant);
+        navigate('/chat', {
+            state: {
+                initialInput: prompt,
+                fromGrant: true,
+            },
+        });
     };
 
     // Check if profile is complete (Basic check)
@@ -347,6 +396,7 @@ export default function Dashboard() {
                                     matchReason: grant.matchReason,
                                 }}
                                 onClick={() => setSelectedRecoGrant(grant)}
+                                onAskAi={() => handleAskAiForGrant(grant)}
                             />
                         ))
                     ) : !user || !isProOrPremium ? (
@@ -478,6 +528,16 @@ export default function Dashboard() {
                                                         상세분석
                                                     </button>
                                                 )}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAskAiForGrant(grant);
+                                                    }}
+                                                    className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                                                >
+                                                    AI 분석
+                                                </button>
                                                 <span
                                                     className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
                                                         calculateDday(grant.deadlineTimestamp) === 'D-Day'
@@ -485,7 +545,7 @@ export default function Dashboard() {
                                                             : 'bg-slate-100 text-slate-500'
                                                     }`}
                                                 >
-                                                    {calculateDday(grant.deadlineTimestamp) || '상시'}
+                                                    {getDeadlineBadgeLabel(grant)}
                                                 </span>
                                                 <span className="text-xs text-slate-400">
                                                     {getGrantDepartment(grant)}
