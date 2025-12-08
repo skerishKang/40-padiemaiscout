@@ -399,7 +399,7 @@ export default function Admin() {
             <div className="grid grid-cols-1 gap-6">
                 {/* Data Collection Section */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-start justify-between mb-4 gap-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-green-50 text-green-600 rounded-lg">
                                 <Database size={20} />
@@ -409,74 +409,76 @@ export default function Admin() {
                                 <p className="text-sm text-slate-500">외부 사이트(기업마당, K-Startup 등)에서 공고를 수집합니다.</p>
                             </div>
                         </div>
-                        <div className="flex flex-wrap gap-2 justify-end">
-                            <button
-                                onClick={handleSyncBizinfo}
-                                disabled={bizinfoSyncing}
-                                className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                {bizinfoSyncing ? (
-                                    <>
-                                        <RefreshCw size={18} className="animate-spin" />
-                                        동기화 중...
-                                    </>
-                                ) : (
-                                    <>
-                                        <RefreshCw size={18} />
-                                        기업마당 동기화
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                onClick={handleSyncKStartup}
-                                disabled={kStartupSyncing}
-                                className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                {kStartupSyncing ? (
-                                    <>
-                                        <RefreshCw size={18} className="animate-spin" />
-                                        동기화 중...
-                                    </>
-                                ) : (
-                                    <>
-                                        <RefreshCw size={18} />
-                                        K-Startup 동기화
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                onClick={handleAnalyzeScrapedGrants}
-                                disabled={analyzeSyncing}
-                                className="px-4 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                {analyzeSyncing ? (
-                                    <>
-                                        <RefreshCw size={18} className="animate-spin" />
-                                        상세분석 중...
-                                    </>
-                                ) : (
-                                    <>
-                                        <RefreshCw size={18} />
-                                        상세 분석(프리미엄)
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
-                            <button
-                                type="button"
-                                onClick={() => navigate('/grants?source=bizinfo')}
-                                className="px-3 py-1 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
-                            >
-                                기업마당 공고 보기
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => navigate('/grants?source=k-startup')}
-                                className="px-3 py-1 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
-                            >
-                                K-Startup 공고 보기
-                            </button>
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-wrap gap-2 justify-end">
+                                <button
+                                    onClick={handleSyncBizinfo}
+                                    disabled={bizinfoSyncing}
+                                    className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                                >
+                                    {bizinfoSyncing ? (
+                                        <>
+                                            <RefreshCw size={18} className="animate-spin" />
+                                            동기화 중...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <RefreshCw size={18} />
+                                            기업마당 동기화
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleSyncKStartup}
+                                    disabled={kStartupSyncing}
+                                    className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                                >
+                                    {kStartupSyncing ? (
+                                        <>
+                                            <RefreshCw size={18} className="animate-spin" />
+                                            동기화 중...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <RefreshCw size={18} />
+                                            K-Startup 동기화
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleAnalyzeScrapedGrants}
+                                    disabled={analyzeSyncing}
+                                    className="px-4 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                                >
+                                    {analyzeSyncing ? (
+                                        <>
+                                            <RefreshCw size={18} className="animate-spin" />
+                                            상세분석 중...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <RefreshCw size={18} />
+                                            상세 분석(프리미엄)
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-xs text-slate-600 justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/grants?source=bizinfo')}
+                                    className="px-3 py-1 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                                >
+                                    기업마당 공고 보기
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/grants?source=k-startup')}
+                                    className="px-3 py-1 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                                >
+                                    K-Startup 공고 보기
+                                </button>
+                            </div>
                         </div>
                     </div>
                     {syncResult && (
