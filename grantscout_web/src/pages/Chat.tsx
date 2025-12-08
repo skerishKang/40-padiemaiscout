@@ -5,6 +5,7 @@ import { geminiService } from '../services/GeminiService';
 import type { GeminiModelType } from '../services/GeminiService';
 import mammoth from 'mammoth';
 import { clsx } from 'clsx';
+import { Link } from 'react-router-dom';
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'padiem_prompt_template_v1';
 const MODEL_STORAGE_KEY = 'padiem_model_selection_v1';
@@ -50,7 +51,7 @@ export default function Chat() {
         {
             id: 'welcome',
             role: 'ai',
-            text: '안녕하세요!\npadiemaiscout AI입니다. 🕵️‍♂️\n\n복잡한 정부·지자체 공고문, 사업계획서, PDF만 올려주세요.\n\n**AI가 3초 만에 핵심만 요약하고, 우리 기업이 지원 가능한지까지 알려드립니다.**\n\n- PDF / 이미지(jpg, png) / 워드 / 한글 문서 업로드 가능\n- 지원 대상, 규모, 마감일, 신청 제외대상까지 한 번에 정리해 드려요.\n- 더 정확한 추천을 원하시면 상단 메뉴의 **[기업 프로필](/profile)** 에서 우리 회사 정보를 한 번만 입력해 주세요.\n- 분석된 공고들은 **[공고](/grants)** 탭에서 다시 모아볼 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
+            text: '안녕하세요!\npadiemaiscout AI입니다. 🕵️‍♂️\n\n복잡한 정부·지자체 공고문, 사업계획서, PDF만 올려주세요.\n\n**AI가 3초 만에 핵심만 요약하고, 우리 기업이 지원 가능한지까지 알려드립니다.**\n\n- PDF / 이미지(jpg, png) / 워드 / 한글 문서 업로드 가능\n- 지원 대상, 규모, 마감일, 신청 제외대상까지 한 번에 정리해 드려요.\n- 더 정확한 추천을 원하시면 상단 메뉴의 기업 프로필(또는 아래 노란 버튼)에서 우리 회사 정보를 한 번만 입력해 주세요.\n- 분석된 공고들은 공고 탭(또는 아래 노란 버튼)에서 다시 모아볼 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
             timestamp: new Date(),
         }
     ]);
@@ -304,6 +305,24 @@ export default function Chat() {
                                     ) : (
                                         msg.text
                                     )}
+                                </div>
+                            )}
+                            {msg.role === 'ai' && msg.id === 'welcome' && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <Link
+                                        to="/profile"
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
+                                    >
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                        기업 프로필 바로가기
+                                    </Link>
+                                    <Link
+                                        to="/grants"
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
+                                    >
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                        공고 탭 바로가기
+                                    </Link>
                                 </div>
                             )}
                             <div className={`text-[10px] text-slate-400 font-medium px-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
