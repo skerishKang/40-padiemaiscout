@@ -34,7 +34,7 @@ if ($hasChanges) {
 # Firebase 배포 (프로젝트 ID: grantscout-af8da)
 Write-Host "Firebase에 배포를 시작합니다..." -ForegroundColor Cyan
 # PowerShell에서는 콤마가 특별히 해석되므로, --only 인자는 반드시 따옴표로 감싼다.
-npx firebase-tools deploy --only "hosting,functions" --project grantscout-af8da
+npx firebase-tools deploy --only "hosting,functions,firestore" --project grantscout-af8da
 
 Write-Host "배포 완료! 🎉" -ForegroundColor Green
 Write-Host "- GitHub: https://github.com/skerishKang/40-padiemaiscout" -ForegroundColor Cyan
