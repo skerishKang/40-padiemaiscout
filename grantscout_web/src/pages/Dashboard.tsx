@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Filter, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { collection, query, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth, functions } from '../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -37,6 +37,8 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
     const [sourceFilter, setSourceFilter] = useState<'all' | 'bizinfo' | 'k-startup' | 'user-upload'>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
     const [analysisPreviewGrant, setAnalysisPreviewGrant] = useState<Grant | null>(null);
     const [selectedRecoGrant, setSelectedRecoGrant] = useState<Grant | null>(null);
 
@@ -96,6 +98,11 @@ export default function Dashboard() {
             setSourceFilter(sourceParam as 'all' | 'bizinfo' | 'k-startup' | 'user-upload');
         }
     }, [location.search]);
+
+    // 정렬/필터 변경 시 페이지를 1페이지로 리셋
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [sourceFilter, viewMode]);
 
     // Pro 유저를 위한 실제 추천 로직 (Gemini checkSuitability 사용)
     useEffect(() => {
@@ -260,6 +267,11 @@ export default function Dashboard() {
             return (a.deadlineTimestamp?.toMillis() || 0) - (b.deadlineTimestamp?.toMillis() || 0);
         });
 
+    const totalPages = Math.max(1, Math.ceil((filteredGrants.length || 0) / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedGrants = filteredGrants.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
     return (
         <div className="h-full flex flex-col gap-4 sm:gap-6 px-3 py-3 sm:p-4 max-w-5xl mx-auto w-full">
             {/* Header */}
@@ -371,7 +383,7 @@ export default function Dashboard() {
                     <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
                         <button
                             onClick={() => setViewMode('newest')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${
                                 viewMode === 'newest'
                                     ? 'bg-white text-blue-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-700'
@@ -381,7 +393,7 @@ export default function Dashboard() {
                         </button>
                         <button
                             onClick={() => setViewMode('closing-soon')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${
                                 viewMode === 'closing-soon'
                                     ? 'bg-white text-purple-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-700'
@@ -395,7 +407,7 @@ export default function Dashboard() {
                         <div className="flex gap-1 bg-slate-50 p-1 rounded-lg">
                             <button
                                 onClick={() => setSourceFilter('all')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                                     sourceFilter === 'all'
                                         ? 'bg-white text-slate-900 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
@@ -405,7 +417,7 @@ export default function Dashboard() {
                             </button>
                             <button
                                 onClick={() => setSourceFilter('bizinfo')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                                     sourceFilter === 'bizinfo'
                                         ? 'bg-white text-blue-600 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
@@ -415,7 +427,7 @@ export default function Dashboard() {
                             </button>
                             <button
                                 onClick={() => setSourceFilter('k-startup')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                                     sourceFilter === 'k-startup'
                                         ? 'bg-white text-indigo-600 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
@@ -425,7 +437,7 @@ export default function Dashboard() {
                             </button>
                             <button
                                 onClick={() => setSourceFilter('user-upload')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                                     sourceFilter === 'user-upload'
                                         ? 'bg-white text-green-600 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
@@ -434,12 +446,6 @@ export default function Dashboard() {
                                 PDF 업로드
                             </button>
                         </div>
-                        <button
-                            className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"
-                            title="필터 옵션"
-                        >
-                            <Filter size={18} />
-                        </button>
                     </div>
                 </div>
 
@@ -450,7 +456,7 @@ export default function Dashboard() {
                         ) : filteredGrants.length === 0 ? (
                             <p className="text-center text-slate-500 py-8">조건에 맞는 공고가 없습니다.</p>
                         ) : (
-                            filteredGrants.map((grant) => (
+                            paginatedGrants.map((grant) => (
                                 <div
                                     key={grant.id}
                                     className="p-4 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border-b border-slate-50 last-border-0"
@@ -491,7 +497,7 @@ export default function Dashboard() {
                                         </div>
                                         <div className="text-right shrink-0">
                                             <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                                                {grant.analysisResult?.지원규모_금액 || '금액 미정'}
+                                                {grant.analysisResult?.지원규모_금액 || '지원 규모는 상세 페이지에서 확인'}
                                             </span>
                                         </div>
                                     </div>
@@ -499,6 +505,31 @@ export default function Dashboard() {
                             ))
                         )}
                     </div>
+                    {!loading && filteredGrants.length > 0 && (
+                        <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between text-xs text-slate-500">
+                            <span>
+                                페이지 {safeCurrentPage} / {totalPages} · 총 {filteredGrants.length}건
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                    disabled={safeCurrentPage === 1}
+                                    className="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    이전
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                    disabled={safeCurrentPage === totalPages}
+                                    className="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    다음
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </section>
 
