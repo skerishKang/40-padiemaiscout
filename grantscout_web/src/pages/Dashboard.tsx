@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Filter, X } from 'lucide-react';
-import { collection, query, where, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth, functions } from '../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -62,14 +62,12 @@ export default function Dashboard() {
     useEffect(() => {
         const fetchGrants = async () => {
             try {
-                const now = Timestamp.now();
-
-                // Fetch active grants (deadline > now) from 'grants' collection
+                // 최근 저장된 공고를 createdAt 기준으로 가져옵니다.
+                // 마감임박/최신순 정렬과 source 필터는 아래 filteredGrants 단계에서 처리합니다.
                 const grantsQuery = query(
-                    collection(db, 'grants'), // Changed from 'uploaded_files'
-                    where('deadlineTimestamp', '>', now),
-                    orderBy('deadlineTimestamp', 'asc'),
-                    limit(50)
+                    collection(db, 'grants'),
+                    orderBy('createdAt', 'desc'),
+                    limit(100)
                 );
 
                 const snapshot = await getDocs(grantsQuery);
