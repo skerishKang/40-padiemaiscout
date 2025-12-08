@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, googleProvider, db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus, AlertCircle } from 'lucide-react';
 
@@ -14,7 +15,25 @@ export default function Login() {
 
     const handleGoogleLogin = async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
+            const result = await signInWithPopup(auth, googleProvider);
+            const user = result.user;
+
+            try {
+                await setDoc(
+                    doc(db, 'users', user.uid),
+                    {
+                        email: user.email,
+                        displayName: user.displayName || '',
+                        role: 'free',
+                        createdAt: serverTimestamp(),
+                        lastLogin: serverTimestamp(),
+                    },
+                    { merge: true }
+                );
+            } catch (profileError) {
+                console.error('Failed to sync user profile after Google login:', profileError);
+            }
+
             navigate('/');
         } catch (err: any) {
             console.error(err);
@@ -29,9 +48,41 @@ export default function Login() {
 
         try {
             if (isSignUp) {
-                await createUserWithEmailAndPassword(auth, email, password);
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                const user = cred.user;
+
+                try {
+                    await setDoc(
+                        doc(db, 'users', user.uid),
+                        {
+                            email: user.email,
+                            displayName: user.displayName || '',
+                            role: 'free',
+                            createdAt: serverTimestamp(),
+                            lastLogin: serverTimestamp(),
+                        },
+                        { merge: true }
+                    );
+                } catch (profileError) {
+                    console.error('Failed to create user profile document:', profileError);
+                }
             } else {
-                await signInWithEmailAndPassword(auth, email, password);
+                const cred = await signInWithEmailAndPassword(auth, email, password);
+                const user = cred.user;
+
+                try {
+                    await setDoc(
+                        doc(db, 'users', user.uid),
+                        {
+                            email: user.email,
+                            displayName: user.displayName || '',
+                            lastLogin: serverTimestamp(),
+                        },
+                        { merge: true }
+                    );
+                } catch (profileError) {
+                    console.error('Failed to update user profile document:', profileError);
+                }
             }
             navigate('/');
         } catch (err: any) {
