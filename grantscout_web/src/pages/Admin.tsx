@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Users, CreditCard, Database, RefreshCw, Clock } from 'lucide-react';
 import { db, functions } from '../lib/firebase';
-import { collection, getCountFromServer, query, where, getDocs, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, getCountFromServer, query, where, getDocs, orderBy, limit, doc, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 interface SchedulerConfig {
@@ -225,7 +225,7 @@ export default function Admin() {
         setUpdatingUserId(userId);
         try {
             const userRef = doc(db, 'users', userId);
-            await updateDoc(userRef, { role: newRole });
+            await setDoc(userRef, { role: newRole }, { merge: true });
             setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
         } catch (error) {
             console.error('Failed to update user role:', error);
