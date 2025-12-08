@@ -654,7 +654,11 @@ async function performKStartupScraping() {
       let href = titleElement.attr("href") || "";
       let link = "";
       if (href) {
-        if (href.startsWith("http")) {
+        if (href.startsWith("javascript:")) {
+          // K-Startup에서 javascript:go_view(...) 형태의 링크는 자바스크립트로 상세 페이지를 여는데,
+          // 정적 스크래핑 환경에서는 직접 실행할 수 없으므로 목록 페이지로 연결한다.
+          link = "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do";
+        } else if (href.startsWith("http")) {
           link = href;
         } else if (href.startsWith("/")) {
           link = "https://www.k-startup.go.kr" + href;
@@ -682,11 +686,19 @@ async function performKStartupScraping() {
         }
       }
 
-      // 기관명 추출: "마감일자 YYYY-MM-DD 기관명 조회" 패턴 기준
+      // 기관명 추출
       let department = null;
+      // 1차: 기존 패턴 (일부 공고에서 사용)
       const deptMatch = text.match(/마감일자\s+\d{4}-\d{2}-\d{2}\s+(.+?)\s+조회/);
       if (deptMatch) {
         department = deptMatch[1].trim();
+      }
+      // 2차: "창업보육센터 지원사업 호서대학교산학협력단 등록일자 ..." 형태 처리
+      if (!department) {
+        const deptMatch2 = text.match(/지원사업\s+(.+?)\s+등록일자/);
+        if (deptMatch2) {
+          department = deptMatch2[1].trim();
+        }
       }
 
       const item = {

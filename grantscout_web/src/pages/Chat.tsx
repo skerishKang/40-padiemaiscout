@@ -5,7 +5,7 @@ import { geminiService } from '../services/GeminiService';
 import type { GeminiModelType } from '../services/GeminiService';
 import mammoth from 'mammoth';
 import { clsx } from 'clsx';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'padiem_prompt_template_v1';
 const MODEL_STORAGE_KEY = 'padiem_model_selection_v1';
@@ -47,6 +47,7 @@ interface Message {
 }
 
 export default function Chat() {
+    const location = useLocation();
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 'welcome',
@@ -73,6 +74,7 @@ export default function Chat() {
     });
     const [isPromptSettingsOpen, setIsPromptSettingsOpen] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [showCreditConfirm, setShowCreditConfirm] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,6 +96,17 @@ export default function Chat() {
         geminiService.setModel(selectedModel);
         window.localStorage.setItem(MODEL_STORAGE_KEY, selectedModel);
     }, [selectedModel]);
+
+    // /chat으로 이동할 때 Dashboard에서 전달한 initialInput, fromGrant 상태를 읽어온다.
+    useEffect(() => {
+        const state = (location.state || {}) as any;
+        if (state && typeof state.initialInput === 'string' && state.initialInput.trim().length > 0) {
+            setInput(state.initialInput);
+            if (state.fromGrant) {
+                setShowCreditConfirm(true);
+            }
+        }
+    }, [location.state]);
 
     const handleDropFiles = (files: FileList | null) => {
         if (!files || files.length === 0) return;
@@ -439,6 +452,10 @@ export default function Chat() {
                                 onKeyPress={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                         e.preventDefault();
+                                        // 공고에서 넘어온 경우에는 크레딧 확인 배너의 버튼으로만 전송
+                                        if (showCreditConfirm) {
+                                            return;
+                                        }
                                         handleSend();
                                     }
                                 }}
@@ -451,9 +468,33 @@ export default function Chat() {
                                 rows={1}
                             />
                         </div>
+                        {showCreditConfirm && (
+                            <div className="mt-2 mb-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                                <span>이 공고를 AI로 분석하면 크레딧 1개가 차감됩니다. 계속 진행할까요?</span>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowCreditConfirm(false);
+                                            handleSend();
+                                        }}
+                                        className="px-3 py-1 rounded-lg bg-amber-600 text-white text-[11px] font-semibold hover:bg-amber-700"
+                                    >
+                                        네, 분석 시작
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCreditConfirm(false)}
+                                        className="px-3 py-1 rounded-lg border border-amber-200 bg-white text-[11px] text-amber-800 hover:bg-amber-100"
+                                    >
+                                        아니오
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <button
                             onClick={handleSend}
-                            disabled={(!input.trim() && !attachedFile) || isLoading}
+                            disabled={showCreditConfirm || (!input.trim() && !attachedFile) || isLoading}
                             className="flex shrink-0 items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-40 cursor-pointer disabled:cursor-default transition-all shadow-md shadow-blue-200 mb-[2px]"
                         >
                             <span className="text-sm font-semibold">전송</span>
