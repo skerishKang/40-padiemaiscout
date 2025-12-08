@@ -212,7 +212,7 @@ export default function Layout() {
                         <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-white/50 shadow-sm">
                             <h4 className="font-semibold text-slate-900 text-sm mb-1">도움이 필요하신가요?</h4>
                             <p className="text-xs text-slate-500 mb-3">전문 컨설턴트와 상담해보세요.</p>
-                            <button className="w-full py-2 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                            <button className="w-full py-2 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-xl hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900 transition-colors shadow-sm cursor-pointer">
                                 고객센터 문의
                             </button>
                         </div>

@@ -301,28 +301,30 @@ export default function Chat() {
                                         : "bg-white/60 text-slate-800 rounded-2xl rounded-tl-none border border-white/40 shadow-slate-200/50"
                                 )}>
                                     {msg.role === 'ai' ? (
-                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                        <>
+                                            <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                            {msg.id === 'welcome' && (
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                    <Link
+                                                        to="/profile"
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
+                                                    >
+                                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                        기업 프로필 바로가기
+                                                    </Link>
+                                                    <Link
+                                                        to="/grants"
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
+                                                    >
+                                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                        공고 탭 바로가기
+                                                    </Link>
+                                                </div>
+                                            )}
+                                        </>
                                     ) : (
                                         msg.text
                                     )}
-                                </div>
-                            )}
-                            {msg.role === 'ai' && msg.id === 'welcome' && (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    <Link
-                                        to="/profile"
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
-                                    >
-                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                        기업 프로필 바로가기
-                                    </Link>
-                                    <Link
-                                        to="/grants"
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
-                                    >
-                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                        공고 탭 바로가기
-                                    </Link>
                                 </div>
                             )}
                             <div className={`text-[10px] text-slate-400 font-medium px-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
@@ -356,7 +358,7 @@ export default function Chat() {
                                     type="button"
                                     onClick={() => setSelectedModel("gemini-2.5-flash-lite")}
                                     className={clsx(
-                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer",
                                         selectedModel === "gemini-2.5-flash-lite"
                                             ? "bg-white text-slate-900 shadow-sm"
                                             : "text-slate-500 hover:text-slate-700"
@@ -368,7 +370,7 @@ export default function Chat() {
                                     type="button"
                                     onClick={() => setSelectedModel("gemini-2.5-flash")}
                                     className={clsx(
-                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer",
                                         selectedModel === "gemini-2.5-flash"
                                             ? "bg-white text-slate-900 shadow-sm"
                                             : "text-slate-500 hover:text-slate-700"
@@ -380,7 +382,7 @@ export default function Chat() {
                                     type="button"
                                     onClick={() => setSelectedModel("gemini-2.5-pro")}
                                     className={clsx(
-                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                                        "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer",
                                         selectedModel === "gemini-2.5-pro"
                                             ? "bg-white text-slate-900 shadow-sm"
                                             : "text-slate-500 hover:text-slate-700"
@@ -393,7 +395,7 @@ export default function Chat() {
                         <button
                             type="button"
                             onClick={() => setIsPromptSettingsOpen(true)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary-100 bg-primary-50 text-[11px] font-medium text-primary-700 hover:bg-primary-100 hover:border-primary-200"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary-100 bg-primary-50 text-[11px] font-medium text-primary-700 hover:bg-primary-100 hover:border-primary-200 cursor-pointer"
                         >
                             <Sparkles size={14} className="text-primary-500" />
                             프롬프트 설정
@@ -470,7 +472,7 @@ export default function Chat() {
                                             : prompt,
                                     )
                                 }
-                                className="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[11px] text-slate-600 hover:border-blue-200 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                className="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[11px] text-slate-600 hover:border-blue-200 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
                             >
                                 {prompt}
                             </button>
