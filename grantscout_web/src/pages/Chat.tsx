@@ -52,7 +52,7 @@ export default function Chat() {
         {
             id: 'welcome',
             role: 'ai',
-            text: '안녕하세요!\npadiemaiscout AI입니다. 🕵️‍♂️\n\n복잡한 정부·지자체 공고문, 사업계획서, PDF만 올려주세요.\n\n**AI가 3초 만에 핵심만 요약하고, 우리 기업이 지원 가능한지까지 알려드립니다.**\n\n- PDF / 이미지(jpg, png) / 워드 / 한글 문서 업로드 가능\n- 지원 대상, 규모, 마감일, 신청 제외대상까지 한 번에 정리해 드려요.\n- 더 정확한 추천을 원하시면 상단 메뉴의 기업 프로필(또는 아래 노란 버튼)에서 우리 회사 정보를 한 번만 입력해 주세요.\n- 분석된 공고들은 공고 탭(또는 아래 노란 버튼)에서 다시 모아볼 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
+            text: '안녕하세요!\npadiemaiscout AI입니다. 🕵️‍♂️\n\n복잡한 정부·지자체 공고문, 사업계획서, PDF만 올려주세요.\n\n**AI가 3초 만에 핵심만 요약하고, 우리 기업이 지원 가능한지까지 알려드립니다.**\n\n- PDF / 이미지(jpg, png) / 워드 / 한글 문서 업로드 가능\n- 지원 대상, 규모, 마감일, 신청 제외대상까지 한 번에 정리해 드려요.\n- 더 정확한 추천을 원하시면 상단 메뉴의 기업 프로필(또는 아래 노란 버튼)에서 우리 회사 정보를 한 번만 입력해 주세요.\n- 분석된 공고들은 공고 탭(또는 아래 노란 버튼)에서 다시 모아볼 수 있습니다.\n\n상단의 **모델 선택**에서 `Lite → Flash → Pro` 로 갈수록 조금 더 깊고 세밀한 분석을 합니다. (Lite는 빠르고 가벼운 요약용, Pro는 가장 풍부한 분석용입니다.)\n**프롬프트 설정**을 열면 AI에게 줄 기본 역할/스타일을 바꿀 수 있어, 답변의 톤과 관점을 우리 팀에 맞게 커스터마이징할 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
             timestamp: new Date(),
         }
     ]);
@@ -286,7 +286,15 @@ export default function Chat() {
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 lg:pt-6 bg-transparent">
                 {messages.map((msg) => (
-                    <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                    <div
+                        key={msg.id}
+                        className={clsx(
+                            "flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300",
+                            // 기본(모바일)에서는 세로 배치, 큰 화면에서는 좌우 배치
+                            "flex-col items-start sm:flex-row",
+                            msg.role === 'user' && "sm:flex-row-reverse"
+                        )}
+                    >
                         <div className={clsx(
                             "w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-lg border-2 border-white overflow-hidden",
                             msg.role === 'ai' ? "bg-white" : "bg-white text-slate-600"
@@ -297,7 +305,10 @@ export default function Chat() {
                                 <User size={20} />
                             )}
                         </div>
-                        <div className={`max-w-[85%] lg:max-w-[75%] space-y-2`}>
+                        <div className={clsx(
+                            "space-y-2 w-full",
+                            "sm:max-w-[75%]"
+                        )}>
                             {msg.attachment && (
                                 <div className="flex items-center gap-3 p-3 bg-white/80 backdrop-blur-sm border border-white/40 rounded-xl text-sm text-slate-600 shadow-sm">
                                     <div className="p-2 bg-primary-50 rounded-lg text-primary-600">
@@ -363,7 +374,7 @@ export default function Chat() {
             {/* Input Area */}
             <div className="p-4 bg-white/30 backdrop-blur-xl border-t border-white/20">
                 <div className="max-w-4xl mx-auto">
-                    <div className="flex items-center justify-between mb-3 gap-2">
+                    <div className="flex items-center justify-between mb-1 gap-2">
                         <div className="flex items-center gap-2 text-[11px] text-slate-500">
                             <span className="hidden sm:inline text-slate-400">모델 선택</span>
                             <div className="flex rounded-full bg-slate-100/80 p-0.5 border border-slate-200/60">
@@ -414,6 +425,10 @@ export default function Chat() {
                             프롬프트 설정
                         </button>
                     </div>
+                    <p className="mb-3 text-[10px] text-slate-400 flex flex-wrap gap-x-2 gap-y-0.5">
+                        <span>Lite는 빠른 요약용, Flash/Pro는 더 깊은 분석용입니다.</span>
+                        <span className="hidden sm:inline">프롬프트 설정을 바꾸면 AI에게 줄 기본 역할·스타일을 조정해 답변 톤을 우리 팀에 맞출 수 있습니다.</span>
+                    </p>
                     {attachedFile && (
                         <div className="flex items-center gap-3 mb-3 p-2 pl-3 bg-primary-50 text-primary-700 rounded-xl text-sm w-fit border border-primary-100 animate-in slide-in-from-bottom-2">
                             <FileText size={16} />
