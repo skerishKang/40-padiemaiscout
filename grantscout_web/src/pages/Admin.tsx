@@ -51,6 +51,9 @@ export default function Admin() {
     const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'free' | 'pro' | 'premium' | 'admin'>('all');
     const [syncLogs, setSyncLogs] = useState<AdminSyncLog[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
+    const [logPage, setLogPage] = useState(1);
+    const [logDateFilter, setLogDateFilter] = useState<'today' | '7days' | '30days' | 'all'>('7days');
+    const LOGS_PER_PAGE = 10;
 
     const handleSyncBizinfo = async () => {
         setBizinfoSyncing(true);
@@ -341,89 +344,87 @@ export default function Admin() {
     }, []);
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-slate-900 text-white rounded-xl">
-                    <ShieldAlert size={24} />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">관리자 대시보드</h1>
-                    <p className="text-slate-500">시스템 관리 및 데이터 수집을 수행합니다.</p>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-green-50 text-green-600 rounded-xl">
-                        <Database size={24} />
+        <div className="max-w-4xl mx-auto px-3 py-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 sm:p-3 bg-slate-900 text-white rounded-xl">
+                        <ShieldAlert size={20} />
                     </div>
                     <div>
-                        <p className="text-sm text-slate-500 font-medium">공고 통계</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                            총 {grantStats.totalGrants}건 · 기업마당 {grantStats.bizinfoGrants}건 · PDF 업로드 {grantStats.userUploadGrants}건
-                        </p>
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">관리자 대시보드</h1>
+                        <p className="text-sm text-slate-500">시스템 관리 및 데이터 수집을 수행합니다.</p>
                     </div>
                 </div>
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                        <Users size={24} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 bg-green-50 text-green-600 rounded-lg">
+                            <Database size={14} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-500">총 공고</span>
                     </div>
-                    <div>
-                        <p className="text-sm text-slate-500 font-medium">총 가입 유저</p>
-                        <p className="text-2xl font-bold text-slate-900">{stats.totalUsers}명</p>
-                    </div>
+                    <p className="text-lg sm:text-xl font-bold text-slate-900">{grantStats.totalGrants}건</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-                        <CreditCard size={24} />
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                            <Users size={14} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-500">총 유저</span>
                     </div>
-                    <div>
-                        <p className="text-sm text-slate-500 font-medium">Pro 멤버십</p>
-                        <p className="text-2xl font-bold text-slate-900">{stats.proUsers}명</p>
-                    </div>
+                    <p className="text-lg sm:text-xl font-bold text-slate-900">{stats.totalUsers}명</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                        <Database size={24} />
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
+                            <CreditCard size={14} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-500">Pro 멤버</span>
                     </div>
-                    <div>
-                        <p className="text-sm text-slate-500 font-medium">상세 분석 현황</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                            분석 완료 {analysisStats.analyzedScrapedGrants}건 · 미분석 {analysisStats.pendingScrapedGrants}건
-                        </p>
+                    <p className="text-lg sm:text-xl font-bold text-slate-900">{stats.proUsers}명</p>
+                </div>
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                            <Database size={14} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-500">분석/미분석</span>
                     </div>
+                    <p className="text-sm sm:text-base font-bold text-slate-900">{analysisStats.analyzedScrapedGrants}/{analysisStats.pendingScrapedGrants}</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 {/* Data Collection Section */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-start justify-between mb-4 gap-4">
+                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex flex-col gap-4 mb-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-green-50 text-green-600 rounded-lg">
-                                <Database size={20} />
+                                <Database size={18} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900">데이터 수집 및 동기화</h3>
-                                <p className="text-sm text-slate-500">외부 사이트(기업마당, K-Startup 등)에서 공고를 수집합니다.</p>
+                                <h3 className="font-bold text-slate-900 text-sm sm:text-base">데이터 수집 및 동기화</h3>
+                                <p className="text-xs sm:text-sm text-slate-500">외부 사이트에서 공고를 수집합니다.</p>
                             </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                            <div className="flex flex-wrap gap-2 justify-end">
+                        <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button
                                     onClick={handleSyncBizinfo}
                                     disabled={bizinfoSyncing}
-                                    className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                                    className="px-3 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
                                 >
                                     {bizinfoSyncing ? (
                                         <>
-                                            <RefreshCw size={18} className="animate-spin" />
+                                            <RefreshCw size={16} className="animate-spin" />
                                             동기화 중...
                                         </>
                                     ) : (
                                         <>
-                                            <RefreshCw size={18} />
+                                            <RefreshCw size={16} />
                                             기업마당 동기화
                                         </>
                                     )}
@@ -431,16 +432,16 @@ export default function Admin() {
                                 <button
                                     onClick={handleSyncKStartup}
                                     disabled={kStartupSyncing}
-                                    className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                                    className="px-3 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
                                 >
                                     {kStartupSyncing ? (
                                         <>
-                                            <RefreshCw size={18} className="animate-spin" />
+                                            <RefreshCw size={16} className="animate-spin" />
                                             동기화 중...
                                         </>
                                     ) : (
                                         <>
-                                            <RefreshCw size={18} />
+                                            <RefreshCw size={16} />
                                             K-Startup 동기화
                                         </>
                                     )}
@@ -448,22 +449,22 @@ export default function Admin() {
                                 <button
                                     onClick={handleAnalyzeScrapedGrants}
                                     disabled={analyzeSyncing}
-                                    className="px-4 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                                    className="px-3 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
                                 >
                                     {analyzeSyncing ? (
                                         <>
-                                            <RefreshCw size={18} className="animate-spin" />
+                                            <RefreshCw size={16} className="animate-spin" />
                                             상세분석 중...
                                         </>
                                     ) : (
                                         <>
-                                            <RefreshCw size={18} />
-                                            상세 분석(프리미엄)
+                                            <RefreshCw size={16} />
+                                            상세 분석
                                         </>
                                     )}
                                 </button>
                             </div>
-                            <div className="flex flex-wrap gap-2 text-xs text-slate-600 justify-end">
+                            <div className="flex flex-wrap gap-2 text-xs text-slate-600">
                                 <button
                                     type="button"
                                     onClick={() => navigate('/grants?source=bizinfo')}
@@ -482,37 +483,37 @@ export default function Admin() {
                         </div>
                     </div>
                     {syncResult && (
-                        <div className={`p-4 rounded-xl text-sm ${syncResult.includes('성공') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        <div className={`p-3 rounded-xl text-xs sm:text-sm ${syncResult.includes('성공') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                             {syncResult}
                         </div>
                     )}
                 </div>
 
                 {/* Scheduler Section */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mt-6">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                                <Clock size={20} />
+                                <Clock size={18} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900">스케줄러 설정</h3>
-                                <p className="text-sm text-slate-500">기업마당 자동 수집 주기와 활성화를 관리합니다.</p>
+                                <h3 className="font-bold text-slate-900 text-sm sm:text-base">스케줄러 설정</h3>
+                                <p className="text-xs sm:text-sm text-slate-500">기업마당 자동 수집 주기를 관리합니다.</p>
                             </div>
                         </div>
                         <button
                             onClick={fetchSchedulerConfig}
                             disabled={loadingScheduler}
-                            className="px-3 py-1.5 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loadingScheduler ? '불러오는 중...' : '새로고침'}
                         </button>
                     </div>
 
                     {schedulerConfig && (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-700">스케줄러 활성화</span>
+                                <span className="text-xs sm:text-sm text-slate-700">스케줄러 활성화</span>
                                 <button
                                     type="button"
                                     onClick={() =>
@@ -528,9 +529,9 @@ export default function Admin() {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                                 <div className="flex-1">
-                                    <p className="text-sm text-slate-700 mb-1">실행 간격(분)</p>
+                                    <p className="text-xs text-slate-700 mb-1">실행 간격(분)</p>
                                     <input
                                         type="number"
                                         min={15}
@@ -543,31 +544,31 @@ export default function Admin() {
                                                     : prev,
                                             )
                                         }
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                     />
                                 </div>
-                                <div className="text-xs text-slate-400">
+                                <div className="text-[10px] sm:text-xs text-slate-400">
                                     <p>최소 15분, 최대 1440분(24시간)</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 text-xs text-slate-500 bg-slate-50 rounded-xl p-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3">
                                 <div>
-                                    <p className="font-medium text-slate-600 mb-1">마지막 실행 시각</p>
-                                    <p>{formatLastRunAt(schedulerConfig.lastRunAt)}</p>
+                                    <p className="font-medium text-slate-600 mb-0.5">마지막 실행</p>
+                                    <p className="text-[11px]">{formatLastRunAt(schedulerConfig.lastRunAt)}</p>
                                 </div>
                                 <div>
-                                    <p className="font-medium text-slate-600 mb-1">마지막 결과</p>
-                                    <p className="line-clamp-2">{schedulerConfig.lastRunResult || schedulerConfig.lastRunError || '-'}</p>
+                                    <p className="font-medium text-slate-600 mb-0.5">마지막 결과</p>
+                                    <p className="line-clamp-2 text-[11px]">{schedulerConfig.lastRunResult || schedulerConfig.lastRunError || '-'}</p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-end gap-2 pt-2">
+                            <div className="flex items-center justify-end gap-2 pt-1">
                                 <button
                                     type="button"
                                     onClick={handleSaveScheduler}
                                     disabled={savingScheduler}
-                                    className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-4 py-2 bg-slate-900 text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {savingScheduler ? '저장 중...' : '설정 저장'}
                                 </button>
@@ -576,22 +577,22 @@ export default function Admin() {
                     )}
 
                     {!schedulerConfig && !loadingScheduler && (
-                        <p className="text-sm text-slate-500">스케줄러 설정을 불러오지 못했습니다. 새로고침을 눌러 다시 시도해주세요.</p>
+                        <p className="text-xs sm:text-sm text-slate-500">스케줄러 설정을 불러오지 못했습니다. 새로고침을 눌러 다시 시도해주세요.</p>
                     )}
 
                     {schedulerMessage && (
-                        <div className="mt-4 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2">
+                        <div className="mt-3 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2">
                             {schedulerMessage}
                         </div>
                     )}
                 </div>
 
                 {/* User Management Section */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div>
-                            <h3 className="text-base font-bold text-slate-900">유저 관리</h3>
-                            <p className="text-xs text-slate-500 mt-1">가입한 유저의 등급을 조정하고 상태를 확인합니다.</p>
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900">유저 관리</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">가입한 유저의 등급을 조정합니다.</p>
                         </div>
                         <button
                             type="button"
@@ -604,15 +605,11 @@ export default function Admin() {
                     </div>
 
                     {/* 검색 / Role 필터 */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
-                            <Users size={14} className="text-slate-400" />
-                            <span>필터 · 검색</span>
-                        </div>
-                        <div className="flex flex-1 justify-end gap-2">
+                    <div className="flex flex-col gap-2 mb-4">
+                        <div className="flex gap-2">
                             <input
                                 type="text"
-                                placeholder="이름, 이메일, ID 검색"
+                                placeholder="이름, 이메일 검색"
                                 value={userSearch}
                                 onChange={(e) => setUserSearch(e.target.value)}
                                 className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10"
@@ -620,9 +617,9 @@ export default function Admin() {
                             <select
                                 value={userRoleFilter}
                                 onChange={(e) => setUserRoleFilter(e.target.value as 'all' | 'free' | 'pro' | 'premium' | 'admin')}
-                                className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white min-w-[90px]"
+                                className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
                             >
-                                <option value="all">전체 등급</option>
+                                <option value="all">전체</option>
                                 <option value="free">일반</option>
                                 <option value="pro">Pro</option>
                                 <option value="premium">Premium</option>
@@ -631,7 +628,42 @@ export default function Admin() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto -mx-3">
+                    {/* 모바일: 카드 레이아웃 */}
+                    <div className="space-y-2 sm:hidden">
+                        {loadingUsers ? (
+                            <p className="text-center text-slate-400 py-6">유저 목록을 불러오는 중...</p>
+                        ) : filteredUsers.length === 0 ? (
+                            <p className="text-center text-slate-400 py-6">조건에 맞는 유저가 없습니다.</p>
+                        ) : (
+                            filteredUsers.slice(0, 10).map((u) => (
+                                <div key={u.id} className="p-3 border border-slate-100 rounded-xl bg-slate-50/50">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                        <span className="text-xs font-medium text-slate-900 truncate">
+                                            {u.displayName || u.email || '(이름 없음)'}
+                                        </span>
+                                        <select
+                                            value={u.role || 'free'}
+                                            onChange={(e) => handleChangeUserRole(u.id, e.target.value)}
+                                            disabled={updatingUserId === u.id}
+                                            className="border border-slate-200 rounded-lg px-2 py-1 text-[10px] bg-white"
+                                        >
+                                            <option value="free">일반</option>
+                                            <option value="pro">Pro</option>
+                                            <option value="premium">Premium</option>
+                                            <option value="admin">관리자</option>
+                                        </select>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 truncate">{u.email || '—'}</p>
+                                </div>
+                            ))
+                        )}
+                        {filteredUsers.length > 10 && (
+                            <p className="text-center text-xs text-slate-400 py-2">+{filteredUsers.length - 10}명 더 있음</p>
+                        )}
+                    </div>
+
+                    {/* 데스크탑: 테이블 레이아웃 */}
+                    <div className="hidden sm:block overflow-x-auto -mx-3">
                         <table className="min-w-full text-sm text-slate-700">
                             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                                 <tr>
@@ -693,102 +725,190 @@ export default function Admin() {
                 </div>
 
                 {/* Sync Logs Section */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div>
                             <h3 className="text-base font-bold text-slate-900">동기화 로그</h3>
                             <p className="text-xs text-slate-500 mt-1">
                                 최근 Bizinfo / K-Startup / 상세분석 실행 이력을 확인합니다.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={fetchSyncLogs}
-                            disabled={loadingLogs}
-                            className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loadingLogs ? '불러오는 중...' : '새로고침'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={logDateFilter}
+                                onChange={(e) => {
+                                    setLogDateFilter(e.target.value as 'today' | '7days' | '30days' | 'all');
+                                    setLogPage(1);
+                                }}
+                                className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
+                            >
+                                <option value="today">오늘</option>
+                                <option value="7days">최근 7일</option>
+                                <option value="30days">최근 30일</option>
+                                <option value="all">전체</option>
+                            </select>
+                            <button
+                                type="button"
+                                onClick={fetchSyncLogs}
+                                disabled={loadingLogs}
+                                className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loadingLogs ? '불러오는 중...' : '새로고침'}
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="overflow-x-auto -mx-3">
-                        <table className="min-w-full text-xs text-slate-700">
-                            <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
-                                <tr>
-                                    <th className="px-3 py-2 text-left">시간</th>
-                                    <th className="px-3 py-2 text-left">작업</th>
-                                    <th className="px-3 py-2 text-left">상태</th>
-                                    <th className="px-3 py-2 text-left">메시지</th>
-                                    <th className="px-3 py-2 text-left">실행자</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loadingLogs ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
-                                            로그를 불러오는 중입니다...
-                                        </td>
-                                    </tr>
-                                ) : syncLogs.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
-                                            저장된 동기화 로그가 없습니다.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    syncLogs.map((log) => {
-                                        const typeLabel =
-                                            log.type === 'scrape_bizinfo' ? '기업마당 동기화' :
-                                                log.type === 'scrape_k_startup' ? 'K-Startup 동기화' :
-                                                    log.type === 'analyze_scraped_grants_batch' ? '상세 분석 배치' :
-                                                        log.type === 'scheduled_scrape_bizinfo' ? '스케줄 Bizinfo 동기화' :
-                                                            log.type;
+                    {/* 날짜 필터링 로직 */}
+                    {(() => {
+                        const now = new Date();
+                        const filterLogs = syncLogs.filter((log) => {
+                            if (logDateFilter === 'all') return true;
+                            if (!log.triggeredAt) return false;
+                            const logDate = log.triggeredAt.toDate ? log.triggeredAt.toDate() : new Date(log.triggeredAt);
+                            const diffMs = now.getTime() - logDate.getTime();
+                            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                            if (logDateFilter === 'today') return diffDays < 1;
+                            if (logDateFilter === '7days') return diffDays < 7;
+                            if (logDateFilter === '30days') return diffDays < 30;
+                            return true;
+                        });
 
-                                        const statusBadgeClass =
-                                            log.status === 'success'
-                                                ? 'bg-green-50 text-green-700 border-green-100'
-                                                : log.status === 'error'
-                                                    ? 'bg-red-50 text-red-700 border-red-100'
-                                                    : 'bg-slate-50 text-slate-600 border-slate-200';
+                        const totalLogPages = Math.max(1, Math.ceil(filterLogs.length / LOGS_PER_PAGE));
+                        const safeLogPage = Math.min(logPage, totalLogPages);
+                        const startIdx = (safeLogPage - 1) * LOGS_PER_PAGE;
+                        const paginatedLogs = filterLogs.slice(startIdx, startIdx + LOGS_PER_PAGE);
 
-                                        return (
-                                            <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50">
-                                                <td className="px-3 py-2 align-top whitespace-nowrap">
-                                                    {formatLogTime(log.triggeredAt)}
-                                                </td>
-                                                <td className="px-3 py-2 align-top">
+                        const getTypeLabel = (type: string) => {
+                            if (type === 'scrape_bizinfo') return '기업마당 동기화';
+                            if (type === 'scrape_k_startup') return 'K-Startup 동기화';
+                            if (type === 'analyze_scraped_grants_batch') return '상세 분석 배치';
+                            if (type === 'scheduled_scrape_bizinfo') return '스케줄 Bizinfo';
+                            return type;
+                        };
+
+                        return (
+                            <>
+                                {/* 모바일: 카드 레이아웃 */}
+                                <div className="space-y-2 sm:hidden">
+                                    {loadingLogs ? (
+                                        <p className="text-center text-slate-400 py-6">로그를 불러오는 중...</p>
+                                    ) : paginatedLogs.length === 0 ? (
+                                        <p className="text-center text-slate-400 py-6">해당 기간의 로그가 없습니다.</p>
+                                    ) : (
+                                        paginatedLogs.map((log) => (
+                                            <div key={log.id} className="p-3 border border-slate-100 rounded-xl bg-slate-50/50">
+                                                <div className="flex items-center justify-between gap-2 mb-2">
                                                     <span className="text-[11px] font-medium text-slate-800">
-                                                        {typeLabel}
+                                                        {getTypeLabel(log.type)}
                                                     </span>
-                                                </td>
-                                                <td className="px-3 py-2 align-top">
                                                     <span
-                                                        className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBadgeClass}`}
-                                                    >
-                                                        {log.status === 'success'
-                                                            ? '성공'
+                                                        className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${log.status === 'success'
+                                                            ? 'bg-green-50 text-green-700 border-green-100'
                                                             : log.status === 'error'
-                                                                ? '실패'
-                                                                : log.status}
+                                                                ? 'bg-red-50 text-red-700 border-red-100'
+                                                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                            }`}
+                                                    >
+                                                        {log.status === 'success' ? '성공' : log.status === 'error' ? '실패' : log.status}
                                                     </span>
-                                                </td>
-                                                <td className="px-3 py-2 align-top max-w-xs">
-                                                    <p className="text-[11px] text-slate-600 line-clamp-2">
-                                                        {log.message || '—'}
-                                                    </p>
-                                                </td>
-                                                <td className="px-3 py-2 align-top whitespace-nowrap">
-                                                    <span className="text-[11px] text-slate-500">
-                                                        {log.triggerEmail || '—'}
-                                                    </span>
-                                                </td>
+                                                </div>
+                                                <p className="text-[10px] text-slate-500 mb-1">{formatLogTime(log.triggeredAt)}</p>
+                                                {log.message && (
+                                                    <p className="text-[11px] text-slate-600 line-clamp-2">{log.message}</p>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* 데스크탑: 테이블 레이아웃 */}
+                                <div className="hidden sm:block overflow-x-auto -mx-3">
+                                    <table className="min-w-full text-xs text-slate-700">
+                                        <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">시간</th>
+                                                <th className="px-3 py-2 text-left">작업</th>
+                                                <th className="px-3 py-2 text-left">상태</th>
+                                                <th className="px-3 py-2 text-left">메시지</th>
                                             </tr>
-                                        );
-                                    })
+                                        </thead>
+                                        <tbody>
+                                            {loadingLogs ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
+                                                        로그를 불러오는 중입니다...
+                                                    </td>
+                                                </tr>
+                                            ) : paginatedLogs.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
+                                                        해당 기간의 로그가 없습니다.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paginatedLogs.map((log) => (
+                                                    <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50">
+                                                        <td className="px-3 py-2 align-top whitespace-nowrap">
+                                                            {formatLogTime(log.triggeredAt)}
+                                                        </td>
+                                                        <td className="px-3 py-2 align-top">
+                                                            <span className="text-[11px] font-medium text-slate-800">
+                                                                {getTypeLabel(log.type)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3 py-2 align-top">
+                                                            <span
+                                                                className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold ${log.status === 'success'
+                                                                    ? 'bg-green-50 text-green-700 border-green-100'
+                                                                    : log.status === 'error'
+                                                                        ? 'bg-red-50 text-red-700 border-red-100'
+                                                                        : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                                    }`}
+                                                            >
+                                                                {log.status === 'success' ? '성공' : log.status === 'error' ? '실패' : log.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3 py-2 align-top max-w-xs">
+                                                            <p className="text-[11px] text-slate-600 line-clamp-2">
+                                                                {log.message || '—'}
+                                                            </p>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* 페이지네이션 */}
+                                {!loadingLogs && filterLogs.length > LOGS_PER_PAGE && (
+                                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                                        <span>
+                                            {safeLogPage} / {totalLogPages} 페이지 · 총 {filterLogs.length}건
+                                        </span>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                                                disabled={safeLogPage === 1}
+                                                className="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            >
+                                                이전
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
+                                                disabled={safeLogPage === totalLogPages}
+                                                className="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            >
+                                                다음
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
-                            </tbody>
-                        </table>
-                    </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
         </div>

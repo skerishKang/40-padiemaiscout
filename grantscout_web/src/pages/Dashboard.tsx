@@ -433,21 +433,19 @@ export default function Dashboard() {
                     <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
                         <button
                             onClick={() => setViewMode('newest')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${
-                                viewMode === 'newest'
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${viewMode === 'newest'
                                     ? 'bg-white text-blue-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-700'
-                            }`}
+                                }`}
                         >
                             최신순
                         </button>
                         <button
                             onClick={() => setViewMode('closing-soon')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${
-                                viewMode === 'closing-soon'
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${viewMode === 'closing-soon'
                                     ? 'bg-white text-purple-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-700'
-                            }`}
+                                }`}
                         >
                             마감임박
                         </button>
@@ -457,41 +455,37 @@ export default function Dashboard() {
                         <div className="flex gap-1 bg-slate-50 p-1 rounded-lg">
                             <button
                                 onClick={() => setSourceFilter('all')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                                    sourceFilter === 'all'
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${sourceFilter === 'all'
                                         ? 'bg-white text-slate-900 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
-                                }`}
+                                    }`}
                             >
                                 전체
                             </button>
                             <button
                                 onClick={() => setSourceFilter('bizinfo')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                                    sourceFilter === 'bizinfo'
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${sourceFilter === 'bizinfo'
                                         ? 'bg-white text-blue-600 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
-                                }`}
+                                    }`}
                             >
                                 기업마당
                             </button>
                             <button
                                 onClick={() => setSourceFilter('k-startup')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                                    sourceFilter === 'k-startup'
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${sourceFilter === 'k-startup'
                                         ? 'bg-white text-indigo-600 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
-                                }`}
+                                    }`}
                             >
                                 K-Startup
                             </button>
                             <button
                                 onClick={() => setSourceFilter('user-upload')}
-                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                                    sourceFilter === 'user-upload'
+                                className={`px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${sourceFilter === 'user-upload'
                                         ? 'bg-white text-green-600 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
-                                }`}
+                                    }`}
                             >
                                 PDF 업로드
                             </button>
@@ -509,55 +503,54 @@ export default function Dashboard() {
                             paginatedGrants.map((grant) => (
                                 <div
                                     key={grant.id}
-                                    className="p-4 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border-b border-slate-50 last-border-0"
+                                    className="p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border-b border-slate-50 last-border-0"
                                     onClick={() => handleGrantClick(grant)}
                                 >
-                                    <div className="flex justify-between items-start gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {getSourceBadge(grant.source)}
-                                                {grant.analysisResult && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setAnalysisPreviewGrant(grant);
-                                                        }}
-                                                        className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-colors"
-                                                    >
-                                                        상세분석
-                                                    </button>
-                                                )}
+                                    {/* 모바일: 세로 레이아웃, 데스크탑: 가로 레이아웃 */}
+                                    <div className="flex flex-col gap-2">
+                                        {/* 제목 - 항상 가장 먼저 */}
+                                        <h4 className="font-bold text-slate-900 text-sm line-clamp-2 group-hover:text-blue-600 transition-colors">
+                                            {getGrantTitle(grant)}
+                                        </h4>
+                                        {/* 배지들 - flex-wrap으로 감싸기 */}
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            {getSourceBadge(grant.source)}
+                                            <span
+                                                className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${calculateDday(grant.deadlineTimestamp) === 'D-Day'
+                                                        ? 'bg-red-100 text-red-600'
+                                                        : 'bg-slate-100 text-slate-500'
+                                                    }`}
+                                            >
+                                                {getDeadlineBadgeLabel(grant)}
+                                            </span>
+                                            {grant.analysisResult && (
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleAskAiForGrant(grant);
+                                                        setAnalysisPreviewGrant(grant);
                                                     }}
-                                                    className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                                                    className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-colors"
                                                 >
-                                                    AI 분석
+                                                    상세분석
                                                 </button>
-                                                <span
-                                                    className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
-                                                        calculateDday(grant.deadlineTimestamp) === 'D-Day'
-                                                            ? 'bg-red-100 text-red-600'
-                                                            : 'bg-slate-100 text-slate-500'
-                                                    }`}
-                                                >
-                                                    {getDeadlineBadgeLabel(grant)}
-                                                </span>
-                                                <span className="text-xs text-slate-400">
-                                                    {getGrantDepartment(grant)}
-                                                </span>
-                                            </div>
-                                            <h4 className="font-bold text-slate-900 text-sm line-clamp-1 group-hover:text-blue-600 transition-colors">
-                                                {getGrantTitle(grant)}
-                                            </h4>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleAskAiForGrant(grant);
+                                                }}
+                                                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                                            >
+                                                AI 분석
+                                            </button>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                                                {grant.analysisResult?.지원규모_금액 || '지원 규모는 상세 페이지에서 확인'}
+                                        {/* 하단 정보 - 소관부처 & 지원규모 */}
+                                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                                            <span>{getGrantDepartment(grant)}</span>
+                                            <span className="font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                                                {grant.analysisResult?.지원규모_금액 || '지원 규모 상세페이지 확인'}
                                             </span>
                                         </div>
                                     </div>
