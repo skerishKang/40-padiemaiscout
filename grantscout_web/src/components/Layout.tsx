@@ -256,8 +256,8 @@ export default function Layout() {
                 <main className={clsx(
                     "flex-1 overflow-hidden relative transition-all duration-300",
                     viewMode === 'mobile'
-                        ? "flex justify-center items-center bg-gradient-to-br from-sky-200 via-rose-200 to-amber-200 p-4"
-                        : "flex justify-center items-start bg-gradient-to-br from-sky-100 via-rose-100 to-amber-100 p-8"
+                        ? "flex justify-center items-center bg-gradient-to-br from-sky-200 via-rose-200 to-amber-200 p-2"
+                        : "flex justify-center items-start bg-gradient-to-br from-sky-100 via-rose-100 to-amber-100 p-4"
                 )}>
                     <div className={clsx(
                         "transition-all duration-300 flex flex-col",
@@ -270,7 +270,7 @@ export default function Layout() {
                         <div className={clsx(
                             "flex-1 scrollbar-hide",
                             viewMode === 'mobile'
-                                ? "pt-6 px-0 pb-0 bg-transparent"
+                                ? "pt-3 px-0 pb-0 bg-transparent"
                                 : "bg-slate-50/30",
                             // Chat 페이지(/)에서는 내부 스크롤을 사용하므로 Layout 스크롤을 막음 (Chrome 이슈 해결)
                             location.pathname === '/' ? "overflow-hidden" : "overflow-y-auto"
