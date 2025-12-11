@@ -440,29 +440,9 @@ export default function Chat() {
                             </button>
                         </div>
                     )}
-                    <div className="flex gap-2 items-end">
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className={clsx(
-                                "p-3 rounded-xl mb-[2px] transition-colors cursor-pointer",
-                                attachedFile
-                                    ? "text-primary-700 bg-primary-50 border border-primary-200 shadow-sm"
-                                    : "text-slate-400 hover:text-primary-600 hover:bg-primary-50"
-                            )}
-                            title="파일 첨부"
-                            aria-label="파일 첨부"
-                        >
-                            <Paperclip size={22} />
-                        </button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            accept=".pdf,.doc,.docx,.hwp,.hwpx,.jpg,.jpeg,.png"
-                            title="파일 첨부"
-                        />
-                        <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-300 transition-all">
+                    <div className="flex flex-col gap-2">
+                        {/* 입력창 - 위에 전체 너비로 배치 */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-300 transition-all">
                             <textarea
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
@@ -478,21 +458,45 @@ export default function Chat() {
                                 }}
                                 placeholder={
                                     attachedFile
-                                        ? "추가로 궁금한 점이 있으면 입력해 주세요. 입력하지 않으면 첨부 문서를 기반으로 요약과 우리 기업의 지원 적합성 분석만 진행합니다."
+                                        ? "추가로 궁금한 점이 있으면 입력해 주세요..."
                                         : "메시지를 입력해 주세요..."
                                 }
-                                className="w-full bg-transparent border-none focus:outline-none resize-none max-h-32 text-sm appearance-none min-h-[24px]"
-                                rows={1}
+                                className="w-full bg-transparent border-none focus:outline-none resize-none text-sm appearance-none min-h-[60px] max-h-32"
+                                rows={2}
                             />
                         </div>
-                        <button
-                            onClick={handleSend}
-                            disabled={showCreditConfirm || (!input.trim() && !attachedFile) || isLoading}
-                            className="flex shrink-0 items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-40 cursor-pointer disabled:cursor-default transition-all shadow-md shadow-blue-200 mb-[2px]"
-                        >
-                            <span className="text-sm font-semibold">전송</span>
-                            <Send size={18} />
-                        </button>
+                        {/* 하단 액션 줄 - 첨부 버튼(왼쪽), 전송 버튼(오른쪽) */}
+                        <div className="flex items-center justify-between">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className={clsx(
+                                    "p-2.5 rounded-xl transition-colors cursor-pointer",
+                                    attachedFile
+                                        ? "text-primary-700 bg-primary-50 border border-primary-200 shadow-sm"
+                                        : "text-slate-400 hover:text-primary-600 hover:bg-primary-50"
+                                )}
+                                title="파일 첨부"
+                                aria-label="파일 첨부"
+                            >
+                                <Paperclip size={20} />
+                            </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileSelect}
+                                className="hidden"
+                                accept=".pdf,.doc,.docx,.hwp,.hwpx,.jpg,.jpeg,.png"
+                                title="파일 첨부"
+                            />
+                            <button
+                                onClick={handleSend}
+                                disabled={showCreditConfirm || (!input.trim() && !attachedFile) || isLoading}
+                                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 cursor-pointer disabled:cursor-default transition-all shadow-md shadow-blue-200"
+                            >
+                                <span className="text-sm font-semibold">전송</span>
+                                <Send size={18} />
+                            </button>
+                        </div>
                     </div>
                     {showCreditConfirm && (
                         <div className="mt-2 mb-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex flex-wrap items-center justify-between gap-2">
