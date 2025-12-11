@@ -29,10 +29,10 @@ const DEFAULT_PROMPT_TEMPLATE = `당신은 국내 기업의 정부지원사업/�
 4. 추가로 체크해야 할 리스크`;
 
 const QUICK_PROMPTS: string[] = [
-    '이 공고의 핵심 요약과 지원 대상을 정리해줘.',
-    '우리 회사가 이 공고에 지원 가능한지, 가능성과 이유를 설명해줘.',
-    '신청 자격, 지원 규모, 신청 제외 대상만 표로 정리해줘.',
-    '이 공고에 맞는 사업계획서 개요(목차)를 제안해줘.',
+    '공고 핵심과 지원 대상을 요약해줘.',
+    '우리 회사의 지원 가능성과 이유를 정리해줘.',
+    '신청 자격·지원 규모·제외대상만 표로 정리해줘.',
+    '이 공고에 맞는 사업계획서 목차를 제안해줘.',
 ];
 
 interface Message {
@@ -374,7 +374,7 @@ export default function Chat() {
             {/* Input Area */}
             <div className="p-4 bg-white/30 backdrop-blur-xl border-t border-white/20">
                 <div className="max-w-4xl mx-auto">
-                    <div className="flex items-center justify-between mb-1 gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1 gap-2">
                         <div className="flex items-center gap-2 text-[11px] text-slate-500">
                             <span className="hidden sm:inline text-slate-400">모델 선택</span>
                             <div className="flex rounded-full bg-slate-100/80 p-0.5 border border-slate-200/60">
@@ -416,14 +416,16 @@ export default function Chat() {
                                 </button>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setIsPromptSettingsOpen(true)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary-100 bg-primary-50 text-[11px] font-medium text-primary-700 hover:bg-primary-100 hover:border-primary-200 cursor-pointer"
-                        >
-                            <Sparkles size={14} className="text-primary-500" />
-                            프롬프트 설정
-                        </button>
+                        <div className="flex sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsPromptSettingsOpen(true)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary-100 bg-primary-50 text-[11px] font-medium text-primary-700 hover:bg-primary-100 hover:border-primary-200 cursor-pointer"
+                            >
+                                <Sparkles size={14} className="text-primary-500" />
+                                프롬프트 설정
+                            </button>
+                        </div>
                     </div>
                     <p className="mb-3 text-[10px] text-slate-400 flex flex-wrap gap-x-2 gap-y-0.5">
                         <span>Lite는 빠른 요약용, Flash/Pro는 더 깊은 분석용입니다.</span>
@@ -483,30 +485,6 @@ export default function Chat() {
                                 rows={1}
                             />
                         </div>
-                        {showCreditConfirm && (
-                            <div className="mt-2 mb-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex flex-wrap items-center justify-between gap-2">
-                                <span>이 공고를 AI로 분석하면 크레딧 1개가 차감됩니다. 계속 진행할까요?</span>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowCreditConfirm(false);
-                                            handleSend();
-                                        }}
-                                        className="px-3 py-1 rounded-lg bg-amber-600 text-white text-[11px] font-semibold hover:bg-amber-700"
-                                    >
-                                        네, 분석 시작
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreditConfirm(false)}
-                                        className="px-3 py-1 rounded-lg border border-amber-200 bg-white text-[11px] text-amber-800 hover:bg-amber-100"
-                                    >
-                                        아니오
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                         <button
                             onClick={handleSend}
                             disabled={showCreditConfirm || (!input.trim() && !attachedFile) || isLoading}
@@ -516,6 +494,30 @@ export default function Chat() {
                             <Send size={18} />
                         </button>
                     </div>
+                    {showCreditConfirm && (
+                        <div className="mt-2 mb-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                            <span>이 공고를 AI로 분석하면 크레딧 1개가 차감됩니다. 계속 진행할까요?</span>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowCreditConfirm(false);
+                                        handleSend();
+                                    }}
+                                    className="px-3 py-1 rounded-lg bg-amber-600 text-white text-[11px] font-semibold hover:bg-amber-700"
+                                >
+                                    네, 분석 시작
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreditConfirm(false)}
+                                    className="px-3 py-1 rounded-lg border border-amber-200 bg-white text-[11px] text-amber-800 hover:bg-amber-100"
+                                >
+                                    아니오
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
                         {QUICK_PROMPTS.map((prompt, idx) => (
                             <button

@@ -256,14 +256,14 @@ export default function Layout() {
                 <main className={clsx(
                     "flex-1 overflow-hidden relative transition-all duration-300",
                     viewMode === 'mobile'
-                        ? "flex justify-center items-center bg-gradient-to-br from-sky-200 via-rose-200 to-amber-200 p-8"
+                        ? "flex justify-center items-center bg-gradient-to-br from-sky-200 via-rose-200 to-amber-200 p-4"
                         : "flex justify-center items-start bg-gradient-to-br from-sky-100 via-rose-100 to-amber-100 p-8"
                 )}>
                     <div className={clsx(
                         "transition-all duration-300 flex flex-col",
                         viewMode === 'mobile'
-                            ? "w-[375px] h-[812px] rounded-[40px] overflow-hidden relative bg-white/15 border border-white/40 backdrop-blur-2xl shadow-[0_32px_80px_rgba(15,23,42,0.65)]"
-                            : "h-full w-full max-w-7xl mx-auto p-4 lg:p-6 bg-white/60 backdrop-blur-2xl border border-white/40 shadow-2xl"
+                            ? "w-full max-w-md h-full rounded-3xl overflow-hidden relative bg-white/70 border border-white/40 backdrop-blur-2xl shadow-[0_32px_80px_rgba(15,23,42,0.65)]"
+                            : "h-full w-full max-w-7xl mx-auto"
                     )}>
 
                         {/* Content Scroll Area */}
