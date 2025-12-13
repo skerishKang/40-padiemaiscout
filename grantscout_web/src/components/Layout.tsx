@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard, ShieldAlert, Bell, Search } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, LogOut, CreditCard, ShieldAlert, Bell, Search } from 'lucide-react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
@@ -37,7 +37,10 @@ export default function Layout() {
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+    const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>(() => {
+        if (typeof window === 'undefined') return 'desktop';
+        return window.innerWidth < 1024 ? 'mobile' : 'desktop';
+    });
     const [user, setUser] = useState<User | null>(null);
     const [userRole, setUserRole] = useState<string | null>(null);
     const [headerSearch, setHeaderSearch] = useState('');
@@ -72,6 +75,15 @@ export default function Layout() {
         setIsMobileSearchOpen(false);
         setIsMobileMenuOpen(false);
     }, [location.pathname]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleResize = () => {
+            setViewMode(window.innerWidth < 1024 ? 'mobile' : 'desktop');
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const navItems = [
         { icon: MessageSquare, label: '스카우터', to: '/' },
@@ -115,6 +127,9 @@ export default function Layout() {
         navigate(qs ? `/grants?${qs}` : '/grants');
     };
 
+    const profileInitial = (user?.displayName || user?.email || 'U').trim().charAt(0).toUpperCase();
+    const profileLabel = (user?.displayName || user?.email?.split('@')[0] || '').trim();
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Top Header (Global) */}
@@ -122,7 +137,7 @@ export default function Layout() {
                 <div className="flex items-center gap-3 shrink-0">
                     {/* Mobile Menu Button */}
                     <button
-                        className={clsx("p-2 -ml-2 text-slate-600 hover:bg-slate-100/50 rounded-lg lg:hidden", viewMode === 'mobile' && "!block")}
+                        className={clsx("p-2 -ml-2 text-slate-600 hover:bg-slate-100/50 rounded-lg lg:hidden")}
                         onClick={() => setIsMobileMenuOpen(true)}
                         title="메뉴 열기"
                     >
@@ -188,79 +203,62 @@ export default function Layout() {
                         <Search size={20} />
                     </button>
 
-                    <div className="relative">
-                        <button
-                            className="p-2 text-slate-600 hover:bg-slate-100/50 rounded-lg"
-                            onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
-                            title="알림"
-                        >
-                            <Bell size={20} />
-                        </button>
-                        {isNotificationMenuOpen && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setIsNotificationMenuOpen(false)}
-                                />
-                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                                    <div className="px-4 py-3 border-b border-slate-50">
-                                        <p className="text-sm font-extrabold text-slate-900">알림</p>
-                                        <p className="text-xs text-slate-500">마감 임박 / 새로운 매칭 알림은 준비 중입니다.</p>
-                                    </div>
-                                    <div className="px-4 py-4 text-sm text-slate-600">
-                                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                                            <p className="font-semibold text-slate-800">알림 기능 안내</p>
-                                            <p className="mt-1 text-xs text-slate-500">곧 마감 임박, 신규 공고 매칭, 결제/크레딧 관련 알림을 제공할 예정입니다.</p>
+                    {user && (
+                        <div className="relative">
+                            <button
+                                className="p-2 text-slate-600 hover:bg-slate-100/50 rounded-lg"
+                                onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                                title="알림"
+                            >
+                                <Bell size={20} />
+                            </button>
+                            {isNotificationMenuOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setIsNotificationMenuOpen(false)}
+                                    />
+                                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
+                                        <div className="px-4 py-3 border-b border-slate-50">
+                                            <p className="text-sm font-extrabold text-slate-900">알림</p>
+                                            <p className="text-xs text-slate-500">마감 임박 / 새로운 매칭 알림은 준비 중입니다.</p>
+                                        </div>
+                                        <div className="px-4 py-4 text-sm text-slate-600">
+                                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                                                <p className="font-semibold text-slate-800">알림 기능 안내</p>
+                                                <p className="mt-1 text-xs text-slate-500">곧 마감 임박, 신규 공고 매칭, 결제/크레딧 관련 알림을 제공할 예정입니다.</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-
-                    {/* View Mode Toggle */}
-                    <div className="hidden lg:flex items-center bg-slate-100/50 backdrop-blur-sm rounded-xl p-1 border border-white/20 shadow-inner">
-                        <button
-                            onClick={() => setViewMode('desktop')}
-                            className={clsx(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 cursor-pointer",
-                                viewMode === 'desktop'
-                                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                                    : "text-slate-500 hover:text-slate-700"
+                                </>
                             )}
-                        >
-                            <Monitor size={16} />
-                            Desktop
-                        </button>
-                        <button
-                            onClick={() => setViewMode('mobile')}
-                            className={clsx(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 cursor-pointer",
-                                viewMode === 'mobile'
-                                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                                    : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <Smartphone size={16} />
-                            Mobile
-                        </button>
-                    </div>
-
-                    <div className="h-6 w-px bg-slate-200 hidden lg:block" />
+                        </div>
+                    )}
 
                     {/* User Profile / Login */}
                     {user ? (
                         <div className="relative">
                             <button
                                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                                className="flex items-center gap-2 p-1.5 pr-3 rounded-full border border-white/20 bg-white/50 hover:bg-white/80 transition-all backdrop-blur-sm shadow-sm cursor-pointer"
+                                className="flex items-center gap-2 p-1.5 pr-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
                             >
-                                <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 text-primary-700 rounded-full flex items-center justify-center shadow-inner">
-                                    <UserCircle size={20} />
-                                </div>
-                                <span className="text-sm font-medium text-slate-700 hidden sm:block">
-                                    {user.email?.split('@')[0]}
-                                </span>
+                                {user.photoURL ? (
+                                    <img
+                                        src={user.photoURL}
+                                        alt="프로필"
+                                        className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    <div className="w-8 h-8 bg-slate-100 text-slate-700 rounded-full flex items-center justify-center font-bold text-sm border border-slate-200">
+                                        {profileInitial}
+                                    </div>
+                                )}
+                                {profileLabel && (
+                                    <span className="text-sm font-medium text-slate-700 hidden sm:block">
+                                        {profileLabel}
+                                    </span>
+                                )}
                             </button>
 
                             {/* Profile Dropdown */}
@@ -276,23 +274,30 @@ export default function Layout() {
                                             <p className="text-xs text-slate-500 truncate">{user.email}</p>
                                         </div>
                                         <Link
+                                            to="/grants?source=user-upload"
+                                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors"
+                                            onClick={() => setIsProfileMenuOpen(false)}
+                                        >
+                                            <LayoutDashboard size={16} />
+                                            내 분석 내역
+                                        </Link>
+                                        <Link
                                             to="/profile"
                                             className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors"
                                             onClick={() => setIsProfileMenuOpen(false)}
                                         >
                                             <FileText size={16} />
-                                            기업 정보 설정
+                                            기업 프로필
                                         </Link>
                                         <button
                                             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors text-left"
                                             onClick={() => {
                                                 setIsProfileMenuOpen(false);
-                                                // Navigate to profile or a dedicated settings modal in future
                                                 window.location.href = '/profile';
                                             }}
                                         >
                                             <UserCircle size={16} />
-                                            개인 정보 설정
+                                            설정
                                         </button>
                                         <div className="border-t border-slate-50 my-1"></div>
                                         <button
@@ -310,9 +315,8 @@ export default function Layout() {
                             )}
                         </div>
                     ) : (
-                        <Link to="/login" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
-                            <LogIn size={16} />
-                            <span className="hidden sm:inline">로그인</span>
+                        <Link to="/login" className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">
+                            로그인
                         </Link>
                     )}
                 </div>
@@ -360,11 +364,10 @@ export default function Layout() {
                 </div>
             )}
 
-            <div className="flex flex-1 overflow-hidden relative bg-slate-50/50">
+            <div className="flex flex-1 overflow-hidden relative bg-slate-50">
                 {/* Sidebar Navigation */}
                 <aside className={clsx(
-                    "w-64 bg-white/80 backdrop-blur-xl border-r border-white/20 flex-col hidden lg:flex shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] z-10",
-                    viewMode === 'mobile' && "!hidden"
+                    "w-64 bg-white/80 backdrop-blur-xl border-r border-white/20 flex-col hidden lg:flex shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] z-10"
                 )}>
                     <nav className="flex-1 p-4 space-y-2">
                         {navItems.map((item) => (
@@ -424,13 +427,13 @@ export default function Layout() {
                 <main className={clsx(
                     "flex-1 overflow-hidden relative transition-all duration-300",
                     viewMode === 'mobile'
-                        ? "flex justify-center items-center bg-gradient-to-br from-sky-200 via-rose-200 to-amber-200 p-2"
-                        : "flex justify-center items-start bg-gradient-to-br from-sky-100 via-rose-100 to-amber-100 p-4"
+                        ? "flex justify-center items-stretch bg-slate-100 p-0"
+                        : "flex justify-center items-start bg-slate-50 p-4"
                 )}>
                     <div className={clsx(
                         "transition-all duration-300 flex flex-col",
                         viewMode === 'mobile'
-                            ? "w-full max-w-md h-full rounded-3xl overflow-hidden relative bg-white/70 border border-white/40 backdrop-blur-2xl shadow-[0_32px_80px_rgba(15,23,42,0.65)]"
+                            ? "w-full h-full overflow-hidden relative bg-white border border-slate-200"
                             : "h-full w-full max-w-7xl mx-auto"
                     )}>
 
@@ -438,8 +441,8 @@ export default function Layout() {
                         <div className={clsx(
                             "flex-1 scrollbar-hide",
                             viewMode === 'mobile'
-                                ? "pt-3 px-0 pb-0 bg-transparent"
-                                : "bg-slate-50/30",
+                                ? "pt-3 px-0 pb-0 bg-white"
+                                : "bg-slate-50",
                             // Chat 페이지(/)에서는 내부 스크롤을 사용하므로 Layout 스크롤을 막음 (Chrome 이슈 해결)
                             location.pathname === '/' ? "overflow-hidden" : "overflow-y-auto"
                         )}>
@@ -448,7 +451,7 @@ export default function Layout() {
 
                         {/* Mobile Bottom Nav */}
                         {viewMode === 'mobile' && (
-                            <div className="bg-white/25 backdrop-blur-2xl border-t border-white/40 px-6 py-4 flex justify-between items-center shrink-0 z-40 pb-8">
+                            <div className="bg-white border-t border-slate-200 px-6 py-4 flex justify-between items-center shrink-0 z-40 pb-8">
                                 {navItems.map((item) => {
                                     const Icon = item.icon;
                                     const isActive = isNavActive(item.to);

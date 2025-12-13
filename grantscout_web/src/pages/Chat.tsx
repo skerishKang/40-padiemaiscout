@@ -52,7 +52,7 @@ export default function Chat() {
         {
             id: 'welcome',
             role: 'ai',
-            text: '### 안녕하세요!\n**PadiemScoutAI 공고분석기**입니다. 🕵️‍♂️\n\n> **3초 요약 + 지원 적합성 판단**까지 한 번에 도와드립니다.\n\n#### 지원 파일\n- PDF\n- 이미지(jpg, png)\n- 워드(doc, docx)\n- 한글(hwp, hwpx)\n\n#### 이렇게 활용하세요\n1. 공고문/사업계획서 파일만 올리고 전송해도 됩니다.\n2. 더 정확한 추천을 원하시면 상단 메뉴의 `기업 프로필`(또는 아래 노란 버튼)에서 우리 회사 정보를 한 번만 입력해 주세요.\n3. 분석된 공고들은 `공고` 탭(또는 아래 노란 버튼)에서 다시 모아볼 수 있습니다.\n\n#### 모델 선택 안내\n- `Lite`: 빠르고 가벼운 요약\n- `Flash`: 균형 잡힌 분석\n- `Pro`: 가장 깊고 세밀한 분석\n\n**프롬프트 설정**을 열면 AI에게 줄 기본 역할/스타일을 바꿀 수 있어, 답변의 톤과 관점을 우리 팀에 맞게 커스터마이징할 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
+            text: '## 💼 지원사업 스마트 분석\n\nPDF/이미지 파일을 올려주세요.\nAI가 **3초 안에 핵심만 요약**하고, **지원 적합성**까지 정리해드립니다.\n\n> Tip: 정확한 매칭을 위해 `기업 프로필`을 먼저 작성해 두면 더 좋아요.\n\n지원: PDF, 이미지(jpg, png), 워드(doc, docx), 한글(hwp, hwpx)',
             timestamp: new Date(),
         }
     ]);
@@ -259,6 +259,11 @@ export default function Chat() {
     };
 
     const welcomeMarkdownComponents: any = {
+        h2: ({ children }: any) => (
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                {children}
+            </h2>
+        ),
         h3: ({ children }: any) => (
             <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
                 {children}
@@ -270,7 +275,7 @@ export default function Chat() {
             </h4>
         ),
         p: ({ children }: any) => (
-            <p className="text-sm text-slate-700 leading-relaxed">
+            <p className="text-base text-slate-700 leading-relaxed">
                 {children}
             </p>
         ),
@@ -280,7 +285,7 @@ export default function Chat() {
             </strong>
         ),
         blockquote: ({ children }: any) => (
-            <blockquote className="mt-3 mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+            <blockquote className="mt-3 mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800">
                 {children}
             </blockquote>
         ),
@@ -309,7 +314,7 @@ export default function Chat() {
     return (
         <div
             className={clsx(
-                "flex flex-col h-full bg-transparent lg:rounded-3xl lg:shadow-[0_24px_60px_-24px_rgba(15,23,42,0.65)] lg:border border-white/40 overflow-hidden relative",
+                "flex flex-col h-full bg-white lg:rounded-3xl lg:shadow-[0_24px_60px_-24px_rgba(15,23,42,0.35)] lg:border border-slate-200 overflow-hidden relative",
                 isDragOver && "ring-2 ring-primary-300 ring-offset-2 ring-offset-transparent"
             )}
             onDragOver={handleDragOver}
@@ -319,7 +324,7 @@ export default function Chat() {
             {/* Chat Header (Optional, mostly for mobile view context) */}
             <div className="bg-white/80 backdrop-blur-md p-4 border-b border-slate-100 flex items-center gap-2 absolute top-0 left-0 right-0 z-10 lg:hidden">
                 <Sparkles size={18} className="text-primary-600" />
-                <span className="font-bold text-slate-800">PadiemScoutAI 공고분석기</span>
+                <span className="font-bold text-slate-800">지원사업 스마트 분석</span>
             </div>
 
             {isDragOver && (
@@ -332,7 +337,7 @@ export default function Chat() {
             )}
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 lg:pt-6 bg-transparent">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 lg:pt-6 bg-slate-50">
                 {messages.map((msg) => (
                     <div
                         key={msg.id}
@@ -370,12 +375,12 @@ export default function Chat() {
                                     "p-4 text-sm leading-relaxed whitespace-pre-wrap shadow-sm backdrop-blur-md",
                                     msg.role === 'user'
                                         ? "bg-blue-600 text-white rounded-2xl rounded-tr-none shadow-primary-500/20"
-                                        : "bg-white/60 text-slate-800 rounded-2xl rounded-tl-none border border-white/40 shadow-slate-200/50"
+                                        : "bg-white text-slate-800 rounded-2xl rounded-tl-none border border-slate-200 shadow-slate-200/40"
                                 )}>
                                     {msg.role === 'ai' ? (
                                         <>
                                             {msg.id === 'welcome' ? (
-                                                <div className="rounded-2xl bg-white/70 border border-white/50 p-4 sm:p-5 shadow-inner">
+                                                <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
                                                     <ReactMarkdown components={welcomeMarkdownComponents}>{msg.text}</ReactMarkdown>
                                                 </div>
                                             ) : (
@@ -385,17 +390,15 @@ export default function Chat() {
                                                 <div className="mt-4 flex flex-wrap gap-2">
                                                     <Link
                                                         to="/profile"
-                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
+                                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 cursor-pointer"
                                                     >
-                                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        기업 프로필 바로가기
+                                                        기업 프로필 작성
                                                     </Link>
                                                     <Link
                                                         to="/grants"
-                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 hover:border-amber-300 cursor-pointer"
+                                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-slate-700 text-xs font-semibold border border-slate-200 hover:bg-slate-50 cursor-pointer"
                                                     >
-                                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        공고 탭 바로가기
+                                                        공고 목록 보기
                                                     </Link>
                                                 </div>
                                             )}
@@ -426,7 +429,7 @@ export default function Chat() {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white/30 backdrop-blur-xl border-t border-white/20">
+            <div className="p-4 bg-white border-t border-slate-200">
                 <div className="max-w-4xl mx-auto">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1 gap-2">
                         <div className="flex items-center gap-2 text-[11px] text-slate-500">
@@ -442,7 +445,7 @@ export default function Chat() {
                                             : "text-slate-500 hover:text-slate-700"
                                     )}
                                 >
-                                    Lite
+                                    Lite(빠름)
                                 </button>
                                 <button
                                     type="button"
@@ -454,7 +457,7 @@ export default function Chat() {
                                             : "text-slate-500 hover:text-slate-700"
                                     )}
                                 >
-                                    Flash
+                                    Flash(표준)
                                 </button>
                                 <button
                                     type="button"
@@ -466,7 +469,7 @@ export default function Chat() {
                                             : "text-slate-500 hover:text-slate-700"
                                     )}
                                 >
-                                    Pro
+                                    Pro(정밀)
                                 </button>
                             </div>
                         </div>
@@ -481,10 +484,36 @@ export default function Chat() {
                             </button>
                         </div>
                     </div>
-                    <p className="mb-3 text-[10px] text-slate-400 flex flex-wrap gap-x-2 gap-y-0.5">
-                        <span>Lite는 빠른 요약용, Flash/Pro는 더 깊은 분석용입니다.</span>
-                        <span className="hidden sm:inline">프롬프트 설정을 바꾸면 AI에게 줄 기본 역할·스타일을 조정해 답변 톤을 우리 팀에 맞출 수 있습니다.</span>
+                    <p className="mb-3 text-[11px] text-slate-500">
+                        Lite=빠른 분석, Flash=표준 분석, Pro=정밀 분석
                     </p>
+
+                    {!attachedFile && (
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="mb-3 rounded-2xl border border-dashed border-slate-300 bg-white hover:bg-slate-50 transition-colors p-4 flex items-center justify-between cursor-pointer"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    fileInputRef.current?.click();
+                                }
+                            }}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+                                    <Paperclip size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-900">파일을 끌어다 놓거나 클릭하여 업로드</p>
+                                    <p className="text-xs text-slate-500">지원: PDF, 이미지, 워드, 한글</p>
+                                </div>
+                            </div>
+                            <span className="text-xs font-semibold text-blue-600">파일 선택</span>
+                        </div>
+                    )}
+
                     {attachedFile && (
                         <div className="flex items-center gap-3 mb-3 p-2 pl-3 bg-primary-50 text-primary-700 rounded-xl text-sm w-fit border border-primary-100 animate-in slide-in-from-bottom-2">
                             <FileText size={16} />
@@ -524,15 +553,15 @@ export default function Chat() {
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className={clsx(
-                                    "p-2.5 rounded-xl transition-colors cursor-pointer",
+                                    "px-3 py-2 rounded-xl transition-colors cursor-pointer text-sm font-semibold",
                                     attachedFile
                                         ? "text-primary-700 bg-primary-50 border border-primary-200 shadow-sm"
-                                        : "text-slate-400 hover:text-primary-600 hover:bg-primary-50"
+                                        : "text-slate-600 bg-white border border-slate-200 hover:bg-slate-50"
                                 )}
                                 title="파일 첨부"
                                 aria-label="파일 첨부"
                             >
-                                <Paperclip size={20} />
+                                파일 첨부
                             </button>
                             <input
                                 type="file"
@@ -547,7 +576,7 @@ export default function Chat() {
                                 disabled={showCreditConfirm || (!input.trim() && !attachedFile) || isLoading}
                                 className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 cursor-pointer disabled:cursor-default transition-all shadow-md shadow-blue-200"
                             >
-                                <span className="text-sm font-semibold">전송</span>
+                                <span className="text-sm font-semibold">{attachedFile ? '분석 시작' : '전송'}</span>
                                 <Send size={18} />
                             </button>
                         </div>
