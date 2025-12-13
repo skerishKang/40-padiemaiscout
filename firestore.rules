@@ -2,24 +2,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if user is admin
-    function isAdmin() {
+    // 이메일(하드코딩 목록)로 관리자 여부 확인
+    function isAdminByEmail() {
       return request.auth != null && request.auth.token.email in ['padiemipu@gmail.com', 'limone@example.com', 'admin@mdreader.com'];
     }
-
-    // User profiles
-    match /users/{userId} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+    
+    // Firestore 사용자 문서의 role 값으로 관리자 여부 확인
+    function isAdminByRole() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
-    // Uploaded Files (Grants) - Public Read for Dashboard, Write for Auth
+    // 관리자 여부 최종 판별
+    function isAdmin() {
+      return isAdminByEmail() || isAdminByRole();
+    }
+
+    // 사용자 프로필
+    match /users/{userId} {
+      // 자신의 프로필은 읽기/쓰기 가능, 관리자는 모든 유저 읽기/쓰기 가능
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      // 자신의 프로필 쓰기는 role 필드 변경 불가 (관리자만 가능)
+      allow write: if request.auth != null && (
+        (request.auth.uid == userId && !('role' in request.resource.data.diff(resource.data).affectedKeys())) ||
+        isAdmin()
+      );
+    }
+    
+    // 업로드 파일(공고) - 대시보드 공개 읽기, 인증 사용자 쓰기
     match /uploaded_files/{docId} {
       allow read: if true;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
     }
 
-    // Scraped Grants - Public Read, Admin Write (or Auth for now)
+    // 수집(크롤링) 공고 - 공개 읽기, 쓰기는 현재 인증 사용자 허용
     match /scraped_grants/{docId} {
       allow read: if true;
       allow write: if request.auth != null;
@@ -35,7 +53,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Payments - Auth only
+    // 결제 - 인증 사용자만 접근
     match /payments/{docId} {
       allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if request.auth != null;

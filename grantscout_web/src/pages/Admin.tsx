@@ -230,9 +230,13 @@ export default function Admin() {
             const userRef = doc(db, 'users', userId);
             await setDoc(userRef, { role: newRole }, { merge: true });
             setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-        } catch (error) {
+            alert(`등급이 ${label}(으)로 변경되었습니다.`);
+        } catch (error: any) {
             console.error('Failed to update user role:', error);
-            alert('등급 변경 중 오류가 발생했습니다.');
+            const errorMsg = error?.code === 'permission-denied'
+                ? '권한이 없습니다. Firestore 보안 규칙을 확인해주세요.'
+                : `등급 변경 중 오류: ${error?.message || error}`;
+            alert(errorMsg);
         } finally {
             setUpdatingUserId(null);
         }
