@@ -38,6 +38,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
     const [sourceFilter, setSourceFilter] = useState<'all' | 'bizinfo' | 'k-startup' | 'user-upload'>('all');
+    const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
     const [analysisPreviewGrant, setAnalysisPreviewGrant] = useState<Grant | null>(null);
@@ -95,15 +96,17 @@ export default function Dashboard() {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const sourceParam = params.get('source');
+        const qParam = params.get('q') || '';
         if (sourceParam === 'all' || sourceParam === 'bizinfo' || sourceParam === 'k-startup' || sourceParam === 'user-upload') {
             setSourceFilter(sourceParam as 'all' | 'bizinfo' | 'k-startup' | 'user-upload');
         }
+        setSearchQuery(qParam);
     }, [location.search]);
 
     // 정렬/필터 변경 시 페이지를 1페이지로 리셋
     useEffect(() => {
         setCurrentPage(1);
-    }, [sourceFilter, viewMode]);
+    }, [sourceFilter, viewMode, searchQuery]);
 
     // Pro 유저를 위한 실제 추천 로직 (Gemini checkSuitability 사용)
     useEffect(() => {
@@ -301,11 +304,27 @@ export default function Dashboard() {
         return '기업 프로필과 Gemini 상세 분석을 기반으로 한 AI 맞춤 추천 결과입니다.';
     })();
 
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
     // Filter Logic
     const filteredGrants = [...allGrants]
         .filter((grant) => {
             if (sourceFilter === 'all') return true;
             return grant.source === sourceFilter;
+        })
+        .filter((grant) => {
+            if (!normalizedQuery) return true;
+            const haystack = [
+                getGrantTitle(grant),
+                getGrantDepartment(grant),
+                grant.analysisResult?.신청자격_상세,
+                grant.analysisResult?.지원규모_금액,
+                grant.analysisResult?.신청기간_종료일,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(normalizedQuery);
         })
         .sort((a, b) => {
             if (viewMode === 'newest') {

@@ -52,7 +52,7 @@ export default function Chat() {
         {
             id: 'welcome',
             role: 'ai',
-            text: '안녕하세요!\npadiemaiscout AI입니다. 🕵️‍♂️\n\n복잡한 정부·지자체 공고문, 사업계획서, PDF만 올려주세요.\n\n**AI가 3초 만에 핵심만 요약하고, 우리 기업이 지원 가능한지까지 알려드립니다.**\n\n- PDF / 이미지(jpg, png) / 워드 / 한글 문서 업로드 가능\n- 지원 대상, 규모, 마감일, 신청 제외대상까지 한 번에 정리해 드려요.\n- 더 정확한 추천을 원하시면 상단 메뉴의 기업 프로필(또는 아래 노란 버튼)에서 우리 회사 정보를 한 번만 입력해 주세요.\n- 분석된 공고들은 공고 탭(또는 아래 노란 버튼)에서 다시 모아볼 수 있습니다.\n\n상단의 **모델 선택**에서 `Lite → Flash → Pro` 로 갈수록 조금 더 깊고 세밀한 분석을 합니다. (Lite는 빠르고 가벼운 요약용, Pro는 가장 풍부한 분석용입니다.)\n**프롬프트 설정**을 열면 AI에게 줄 기본 역할/스타일을 바꿀 수 있어, 답변의 톤과 관점을 우리 팀에 맞게 커스터마이징할 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
+            text: '### 안녕하세요!\n**PadiemScoutAI 공고분석기**입니다. 🕵️‍♂️\n\n> **3초 요약 + 지원 적합성 판단**까지 한 번에 도와드립니다.\n\n#### 지원 파일\n- PDF\n- 이미지(jpg, png)\n- 워드(doc, docx)\n- 한글(hwp, hwpx)\n\n#### 이렇게 활용하세요\n1. 공고문/사업계획서 파일만 올리고 전송해도 됩니다.\n2. 더 정확한 추천을 원하시면 상단 메뉴의 `기업 프로필`(또는 아래 노란 버튼)에서 우리 회사 정보를 한 번만 입력해 주세요.\n3. 분석된 공고들은 `공고` 탭(또는 아래 노란 버튼)에서 다시 모아볼 수 있습니다.\n\n#### 모델 선택 안내\n- `Lite`: 빠르고 가벼운 요약\n- `Flash`: 균형 잡힌 분석\n- `Pro`: 가장 깊고 세밀한 분석\n\n**프롬프트 설정**을 열면 AI에게 줄 기본 역할/스타일을 바꿀 수 있어, 답변의 톤과 관점을 우리 팀에 맞게 커스터마이징할 수 있습니다.\n\n먼저 공고문이나 사업계획서를 첨부해 보세요. 아무것도 입력하지 않고 파일만 올리고 전송해도, 알아서 핵심을 정리해 드립니다.',
             timestamp: new Date(),
         }
     ]);
@@ -258,6 +258,54 @@ export default function Chat() {
         }
     };
 
+    const welcomeMarkdownComponents: any = {
+        h3: ({ children }: any) => (
+            <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                {children}
+            </h3>
+        ),
+        h4: ({ children }: any) => (
+            <h4 className="mt-4 text-sm font-bold text-slate-900">
+                {children}
+            </h4>
+        ),
+        p: ({ children }: any) => (
+            <p className="text-sm text-slate-700 leading-relaxed">
+                {children}
+            </p>
+        ),
+        strong: ({ children }: any) => (
+            <strong className="font-extrabold text-primary-700">
+                {children}
+            </strong>
+        ),
+        blockquote: ({ children }: any) => (
+            <blockquote className="mt-3 mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                {children}
+            </blockquote>
+        ),
+        ul: ({ children }: any) => (
+            <ul className="mt-2 space-y-1 list-disc pl-5">
+                {children}
+            </ul>
+        ),
+        ol: ({ children }: any) => (
+            <ol className="mt-2 space-y-1 list-decimal pl-5">
+                {children}
+            </ol>
+        ),
+        li: ({ children }: any) => (
+            <li className="text-sm text-slate-700">
+                {children}
+            </li>
+        ),
+        code: ({ children }: any) => (
+            <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-800 text-[12px] font-semibold">
+                {children}
+            </code>
+        ),
+    };
+
     return (
         <div
             className={clsx(
@@ -271,7 +319,7 @@ export default function Chat() {
             {/* Chat Header (Optional, mostly for mobile view context) */}
             <div className="bg-white/80 backdrop-blur-md p-4 border-b border-slate-100 flex items-center gap-2 absolute top-0 left-0 right-0 z-10 lg:hidden">
                 <Sparkles size={18} className="text-primary-600" />
-                <span className="font-bold text-slate-800">AI 분석 챗봇</span>
+                <span className="font-bold text-slate-800">PadiemScoutAI 공고분석기</span>
             </div>
 
             {isDragOver && (
@@ -326,7 +374,13 @@ export default function Chat() {
                                 )}>
                                     {msg.role === 'ai' ? (
                                         <>
-                                            <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                            {msg.id === 'welcome' ? (
+                                                <div className="rounded-2xl bg-white/70 border border-white/50 p-4 sm:p-5 shadow-inner">
+                                                    <ReactMarkdown components={welcomeMarkdownComponents}>{msg.text}</ReactMarkdown>
+                                                </div>
+                                            ) : (
+                                                <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                            )}
                                             {msg.id === 'welcome' && (
                                                 <div className="mt-4 flex flex-wrap gap-2">
                                                     <Link

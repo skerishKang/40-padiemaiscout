@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard, ShieldAlert } from 'lucide-react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, MessageSquare, FileText, Menu, X, UserCircle, Smartphone, Monitor, LogIn, LogOut, CreditCard, ShieldAlert, Bell, Search } from 'lucide-react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import clsx from 'clsx';
 
 interface SidebarItemProps {
@@ -33,21 +34,48 @@ function SidebarItem({ icon: Icon, label, to, active, onClick }: SidebarItemProp
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
     const [user, setUser] = useState<User | null>(null);
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const [headerSearch, setHeaderSearch] = useState('');
     const location = useLocation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
+
+            if (currentUser) {
+                (async () => {
+                    try {
+                        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+                        const data = userDoc.data() as any;
+                        setUserRole((data && data.role) || 'free');
+                    } catch (error) {
+                        console.error("레이아웃에서 유저 프로필 로드 중 오류:", error);
+                        setUserRole(null);
+                    }
+                })();
+            } else {
+                setUserRole(null);
+            }
         });
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        setIsProfileMenuOpen(false);
+        setIsNotificationMenuOpen(false);
+        setIsMobileSearchOpen(false);
+        setIsMobileMenuOpen(false);
+    }, [location.pathname]);
+
     const navItems = [
         { icon: MessageSquare, label: '스카우터', to: '/' },
-        { icon: LayoutDashboard, label: '공고', to: '/grants' },
+        { icon: LayoutDashboard, label: '공고목록', to: '/grants' },
         { icon: FileText, label: '기업 프로필', to: '/profile' },
         { icon: CreditCard, label: '멤버십', to: '/pricing' },
     ];
@@ -60,22 +88,38 @@ export default function Layout() {
     };
 
     // Admin Check
-    const isAdmin = user?.email && [
+    const adminEmails = [
         'padiemipu@gmail.com',
         'paidemipu@gmail.com', // Typo fallback
         'limone@example.com',
         'admin@mdreader.com'
-    ].includes(user.email);
+    ];
+    const isAdminByEmail = !!(user?.email && adminEmails.includes(user.email));
+    const isAdminByRole = userRole === 'admin';
+    const isAdmin = isAdminByEmail || isAdminByRole;
 
     if (isAdmin) {
         navItems.push({ icon: ShieldAlert, label: '관리자', to: '/admin' });
     }
 
+    const goToGrantsSearch = (rawQuery: string) => {
+        const query = rawQuery.trim();
+        const current = new URLSearchParams(location.search);
+        const source = current.get('source');
+
+        const params = new URLSearchParams();
+        if (source) params.set('source', source);
+        if (query) params.set('q', query);
+
+        const qs = params.toString();
+        navigate(qs ? `/grants?${qs}` : '/grants');
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Top Header (Global) */}
-            <header className="bg-white/80 backdrop-blur-md border-b border-white/20 h-16 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-50 shadow-sm">
-                <div className="flex items-center gap-3">
+            <header className="bg-white/80 backdrop-blur-md border-b border-white/20 h-16 flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-50 shadow-sm">
+                <div className="flex items-center gap-3 shrink-0">
                     {/* Mobile Menu Button */}
                     <button
                         className={clsx("p-2 -ml-2 text-slate-600 hover:bg-slate-100/50 rounded-lg lg:hidden", viewMode === 'mobile' && "!block")}
@@ -86,12 +130,94 @@ export default function Layout() {
                     </button>
 
                     <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900 tracking-tight">
-                        <img src="/logo-main.png" alt="padiemaiscout" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
-                        <span className="hidden sm:inline bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">padiemaiscout</span>
+                        <img src="/logo-main.png" alt="파디 스카우터" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
+                        <span className="hidden sm:inline bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">파디 스카우터</span>
+                        <span className="hidden md:inline text-xs font-semibold text-slate-500">지원사업 스카우터</span>
                     </Link>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-4">
+                <div className="hidden lg:flex items-center gap-4 flex-1 px-4">
+                    <nav className="flex items-center gap-1">
+                        {navItems.map((item) => (
+                            <Link
+                                key={`top-${item.to}`}
+                                to={item.to}
+                                className={clsx(
+                                    "px-3 py-2 rounded-xl text-sm font-semibold transition-colors",
+                                    isNavActive(item.to)
+                                        ? "bg-primary-100 text-primary-700"
+                                        : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900"
+                                )}
+                            >
+                                {item.label}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <form
+                        className="flex items-center gap-2 flex-1 max-w-xl"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            goToGrantsSearch(headerSearch);
+                        }}
+                    >
+                        <div className="flex items-center gap-2 w-full rounded-2xl bg-white/70 border border-slate-200 shadow-sm px-3 py-2">
+                            <Search size={18} className="text-slate-400" />
+                            <input
+                                value={headerSearch}
+                                onChange={(e) => setHeaderSearch(e.target.value)}
+                                placeholder="키워드로 공고 빠른 검색"
+                                className="w-full bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
+                            />
+                            <button
+                                type="submit"
+                                className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+                            >
+                                검색
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <button
+                        className="p-2 text-slate-600 hover:bg-slate-100/50 rounded-lg lg:hidden"
+                        onClick={() => setIsMobileSearchOpen(true)}
+                        title="공고 검색"
+                    >
+                        <Search size={20} />
+                    </button>
+
+                    <div className="relative">
+                        <button
+                            className="p-2 text-slate-600 hover:bg-slate-100/50 rounded-lg"
+                            onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                            title="알림"
+                        >
+                            <Bell size={20} />
+                        </button>
+                        {isNotificationMenuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => setIsNotificationMenuOpen(false)}
+                                />
+                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
+                                    <div className="px-4 py-3 border-b border-slate-50">
+                                        <p className="text-sm font-extrabold text-slate-900">알림</p>
+                                        <p className="text-xs text-slate-500">마감 임박 / 새로운 매칭 알림은 준비 중입니다.</p>
+                                    </div>
+                                    <div className="px-4 py-4 text-sm text-slate-600">
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                                            <p className="font-semibold text-slate-800">알림 기능 안내</p>
+                                            <p className="mt-1 text-xs text-slate-500">곧 마감 임박, 신규 공고 매칭, 결제/크레딧 관련 알림을 제공할 예정입니다.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     {/* View Mode Toggle */}
                     <div className="hidden lg:flex items-center bg-slate-100/50 backdrop-blur-sm rounded-xl p-1 border border-white/20 shadow-inner">
                         <button
@@ -191,6 +317,48 @@ export default function Layout() {
                     )}
                 </div>
             </header>
+
+            {isMobileSearchOpen && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-white/40 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                            <p className="text-sm font-extrabold text-slate-900">공고 검색</p>
+                            <button
+                                className="p-2 -mr-2 text-slate-400 hover:text-slate-600"
+                                onClick={() => setIsMobileSearchOpen(false)}
+                                aria-label="검색 닫기"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form
+                            className="p-4"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                setIsMobileSearchOpen(false);
+                                goToGrantsSearch(headerSearch);
+                            }}
+                        >
+                            <div className="flex items-center gap-2 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
+                                <Search size={18} className="text-slate-400" />
+                                <input
+                                    value={headerSearch}
+                                    onChange={(e) => setHeaderSearch(e.target.value)}
+                                    placeholder="키워드를 입력하세요"
+                                    className="w-full bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
+                                    autoFocus
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="mt-3 w-full py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-colors"
+                            >
+                                검색
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-1 overflow-hidden relative bg-slate-50/50">
                 {/* Sidebar Navigation */}
