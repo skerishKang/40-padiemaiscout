@@ -22,7 +22,7 @@ export default function RecommendationCard({ grant, onClick, onAskAi }: Recommen
     const end = new Date(grant.endDate);
     let diffDays: number | null = null;
     let dDay: string;
-    let isDateValid = !isNaN(end.getTime());
+    const isDateValid = !isNaN(end.getTime());
     if (isDateValid) {
         const diffTime = end.getTime() - today.getTime();
         diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
