@@ -52,6 +52,7 @@ export default function Dashboard() {
     const [allGrants, setAllGrants] = useState<Grant[]>([]);
     const [recommendedGrants, setRecommendedGrants] = useState<Grant[]>([]);
     const [recoLoading, setRecoLoading] = useState(false);
+    const [recoExpanded, setRecoExpanded] = useState(false);
     const [recoEmpty, setRecoEmpty] = useState<RecommendationEmptyState | null>(null);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
@@ -138,6 +139,7 @@ export default function Dashboard() {
             if (allGrants.length === 0) return;
 
             setRecommendedGrants([]);
+            setRecoExpanded(false);
 
             const filledCount = [
                 userProfile?.industry,
@@ -163,6 +165,7 @@ export default function Dashboard() {
                 // 분석 결과가 있는 공고 중 일부만 대상으로 적합도 계산 (과도한 호출 방지)
                 const normalizedRole = normalizeRole(role);
                 const candidateLimit = (normalizedRole === 'premium' || normalizedRole === 'admin') ? 30 : 15;
+                const maxRecoCount = (normalizedRole === 'premium' || normalizedRole === 'admin') ? 10 : 3;
                 const candidates = allGrants
                     .filter(g => g.analysisResult)
                     .slice(0, candidateLimit);
@@ -222,7 +225,8 @@ export default function Dashboard() {
                     return;
                 }
 
-                const recommended = matched.map(item => {
+                const limited = matched.slice(0, maxRecoCount);
+                const recommended = limited.map(item => {
                     const { grant, reason, score } = item;
                     // reason을 간단한 bullet 형태로 분리
                     const reasons = reason
@@ -352,6 +356,10 @@ export default function Dashboard() {
     const isProfileComplete = userProfile?.industry && userProfile?.location;
     const userRole = normalizeRole(userProfile?.role);
     const isProOrPremium = isProOrAboveRole(userRole);
+    const isPremiumOrAdmin = userRole === 'premium' || userRole === 'admin';
+    const visibleRecoGrants = isPremiumOrAdmin && !recoExpanded
+        ? recommendedGrants.slice(0, 3)
+        : recommendedGrants;
 
     const roleLabel = (() => {
         if (!user) return '게스트';
@@ -473,7 +481,7 @@ export default function Dashboard() {
                             />
                         ))
                     ) : recommendedGrants.length > 0 ? (
-                        recommendedGrants.map((grant) => (
+                        visibleRecoGrants.map((grant) => (
                             <RecommendationCard
                                 key={grant.id}
                                 grant={{
@@ -519,6 +527,16 @@ export default function Dashboard() {
                                 </a>
                             )}
                         </div>
+                    )}
+
+                    {recommendedGrants.length > 3 && isPremiumOrAdmin && (
+                        <button
+                            type="button"
+                            onClick={() => setRecoExpanded((prev) => !prev)}
+                            className="self-center px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                        >
+                            {recoExpanded ? '추천 접기' : `추천 더보기 (+${recommendedGrants.length - 3})`}
+                        </button>
                     )}
                 </div>
             </section>
