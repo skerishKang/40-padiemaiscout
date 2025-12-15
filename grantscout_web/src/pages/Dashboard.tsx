@@ -28,6 +28,15 @@ interface Grant {
     matchReason?: string[];
 }
 
+const normalizeRole = (role: unknown) => {
+    return typeof role === 'string' ? role.toLowerCase() : '';
+};
+
+const isProOrAboveRole = (role: unknown) => {
+    const normalized = normalizeRole(role);
+    return normalized === 'pro' || normalized === 'premium' || normalized === 'admin';
+};
+
 export default function Dashboard() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -92,8 +101,8 @@ export default function Dashboard() {
         fetchGrants();
     }, []);
 
-    // URL 쿼리 파라미터(source)를 기반으로 초기 sourceFilter 설정
     useEffect(() => {
+        // URL 쿼리 파라미터(source)를 기반으로 초기 sourceFilter 설정
         const params = new URLSearchParams(location.search);
         const sourceParam = params.get('source');
         const qParam = params.get('q') || '';
@@ -114,7 +123,7 @@ export default function Dashboard() {
             if (!user || !userProfile) return;
             const role = userProfile?.role;
             // Pro 이상에게만 실제 추천 로직 적용
-            if (role !== 'pro' && role !== 'premium') return;
+            if (!isProOrAboveRole(role)) return;
             if (allGrants.length === 0) return;
 
             try {
@@ -283,8 +292,8 @@ export default function Dashboard() {
 
     // Check if profile is complete (Basic check)
     const isProfileComplete = userProfile?.industry && userProfile?.location;
-    const userRole = userProfile?.role;
-    const isProOrPremium = userRole === 'pro' || userRole === 'premium';
+    const userRole = normalizeRole(userProfile?.role);
+    const isProOrPremium = isProOrAboveRole(userRole);
 
     const roleLabel = (() => {
         if (!user) return '게스트';

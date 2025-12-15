@@ -148,8 +148,20 @@ export default function Profile() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <span
-                                    className={`px-2 py-1 text-xs font-bold rounded ${formData.role === 'pro' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
-                                    {formData.role === 'pro' ? 'PRO Plan' : 'Free Plan'}
+                                    className={`px-2 py-1 text-xs font-bold rounded ${formData.role === 'admin'
+                                        ? 'bg-slate-900 text-white'
+                                        : formData.role === 'premium'
+                                            ? 'bg-amber-100 text-amber-700'
+                                            : formData.role === 'pro'
+                                                ? 'bg-purple-100 text-purple-700'
+                                                : 'bg-gray-100 text-gray-600'}`}>
+                                    {formData.role === 'admin'
+                                        ? '관리자 Plan'
+                                        : formData.role === 'premium'
+                                            ? 'Premium Plan'
+                                            : formData.role === 'pro'
+                                                ? 'PRO Plan'
+                                                : 'Free Plan'}
                                 </span>
                                 <button onClick={handleLogout} className="text-xs text-red-500 hover:underline cursor-pointer">로그아웃</button>
                             </div>

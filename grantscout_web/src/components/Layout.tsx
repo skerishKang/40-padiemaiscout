@@ -151,6 +151,8 @@ export default function Layout() {
                     </Link>
                 </div>
 
+                <div className="flex-1 lg:hidden" />
+
                 <div className="hidden lg:flex items-center gap-4 flex-1 px-4">
                     <nav className="flex items-center gap-1">
                         {navItems.map((item) => (
@@ -218,7 +220,7 @@ export default function Layout() {
                                         className="fixed inset-0 z-40"
                                         onClick={() => setIsNotificationMenuOpen(false)}
                                     />
-                                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
+                                    <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
                                         <div className="px-4 py-3 border-b border-slate-50">
                                             <p className="text-sm font-extrabold text-slate-900">알림</p>
                                             <p className="text-xs text-slate-500">마감 임박 / 새로운 매칭 알림은 준비 중입니다.</p>
