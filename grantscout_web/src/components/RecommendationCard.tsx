@@ -35,7 +35,7 @@ export default function RecommendationCard({ grant, onClick, onAskAi }: Recommen
     return (
         <div
             onClick={onClick}
-            className="min-w-[300px] md:min-w-[350px] bg-gradient-to-br from-white to-blue-50 rounded-2xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group snap-center"
+            className="w-full bg-gradient-to-br from-white to-blue-50 rounded-2xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group"
         >
             {/* Decorative Background */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-full -mr-16 -mt-16 opacity-50 blur-2xl group-hover:bg-blue-200 transition-colors"></div>
@@ -102,7 +102,7 @@ export default function RecommendationCard({ grant, onClick, onAskAi }: Recommen
                                     e.stopPropagation();
                                     onAskAi();
                                 }}
-                                className="px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100 hover:bg-blue-100"
+                                className="px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100 hover:bg-blue-100 hover:border-blue-200 hover:text-blue-700 transition-colors cursor-pointer"
                             >
                                 AI 분석
                             </button>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus, AlertCircle } from 'lucide-react';
@@ -19,17 +19,32 @@ export default function Login() {
             const user = result.user;
 
             try {
-                await setDoc(
-                    doc(db, 'users', user.uid),
-                    {
-                        email: user.email,
-                        displayName: user.displayName || '',
-                        role: 'free',
-                        createdAt: serverTimestamp(),
-                        lastLogin: serverTimestamp(),
-                    },
-                    { merge: true }
-                );
+                const userRef = doc(db, 'users', user.uid);
+                const existingSnap = await getDoc(userRef);
+
+                if (!existingSnap.exists()) {
+                    await setDoc(
+                        userRef,
+                        {
+                            email: user.email,
+                            displayName: user.displayName || '',
+                            role: 'free',
+                            createdAt: serverTimestamp(),
+                            lastLogin: serverTimestamp(),
+                        },
+                        { merge: true }
+                    );
+                } else {
+                    await setDoc(
+                        userRef,
+                        {
+                            email: user.email,
+                            displayName: user.displayName || '',
+                            lastLogin: serverTimestamp(),
+                        },
+                        { merge: true }
+                    );
+                }
             } catch (profileError) {
                 console.error('Failed to sync user profile after Google login:', profileError);
             }

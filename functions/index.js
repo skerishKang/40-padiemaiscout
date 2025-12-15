@@ -108,6 +108,54 @@ function getAllowedModelsFromEnv() {
   }
 }
 
+function parseJsonSafe(value) {
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return null;
+  }
+}
+
+function extractJsonFromText(text) {
+  if (!text || typeof text !== "string") return null;
+
+  const direct = parseJsonSafe(text);
+  if (direct) return direct;
+
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch && fenceMatch[1]) {
+    const fenced = parseJsonSafe(fenceMatch[1]);
+    if (fenced) return fenced;
+  }
+
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const sliced = text.slice(firstBrace, lastBrace + 1);
+    const slicedParsed = parseJsonSafe(sliced);
+    if (slicedParsed) return slicedParsed;
+  }
+
+  return null;
+}
+
+function normalizeSuitabilityPayload(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const rawScore = payload.score;
+  const score = typeof rawScore === "number"
+    ? rawScore
+    : typeof rawScore === "string"
+      ? Number(rawScore)
+      : Number.NaN;
+
+  if (Number.isNaN(score)) return null;
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    reason: typeof payload.reason === "string" ? payload.reason : "",
+  };
+}
+
 // Gemini 모델명은 GoogleGenerativeAI.listModels()로 확인 가능
 const GEMINI_MODEL_NAME = "gemini-2.5-flash-lite";
 
@@ -202,10 +250,9 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
         "결과는 반드시 유효한 JSON 형식이어야 합니다.";
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      let suitability = null;
-      try {
-        suitability = JSON.parse(text);
-      } catch (e) {
+      const parsed = extractJsonFromText(text);
+      const suitability = normalizeSuitabilityPayload(parsed);
+      if (!suitability) {
         return { status: "ok", raw: text, parseError: true };
       }
       return { status: "ok", suitability };

@@ -128,7 +128,13 @@ export default function Dashboard() {
 
             try {
                 const buildFallbackRecommendations = (): Grant[] => {
-                    const base = allGrants.slice(0, 3);
+                    const base = [...allGrants]
+                        .sort((a, b) => {
+                            const aTime = a.deadlineTimestamp?.toMillis() ?? Number.POSITIVE_INFINITY;
+                            const bTime = b.deadlineTimestamp?.toMillis() ?? Number.POSITIVE_INFINITY;
+                            return aTime - bTime;
+                        })
+                        .slice(0, 3);
                     return base.map(grant => ({
                         ...grant,
                         matchReason: grant.matchReason && grant.matchReason.length > 0
@@ -155,8 +161,16 @@ export default function Dashboard() {
                             analysisResult: grant.analysisResult,
                         });
                         const data = res.data;
-                        if (data && data.status === 'ok' && data.suitability && typeof data.suitability.score === 'number') {
-                            scored.push({ grant, score: data.suitability.score, reason: data.suitability.reason });
+                        if (data && data.status === 'ok' && data.suitability) {
+                            const rawScore = data.suitability.score;
+                            const score = typeof rawScore === 'number'
+                                ? rawScore
+                                : typeof rawScore === 'string'
+                                    ? Number(rawScore)
+                                    : Number.NaN;
+                            if (!Number.isNaN(score)) {
+                                scored.push({ grant, score, reason: data.suitability.reason });
+                            }
                         }
                     } catch (e) {
                         // 개별 공고 실패는 무시하고 다음으로 진행
@@ -171,7 +185,7 @@ export default function Dashboard() {
 
                 scored.sort((a, b) => b.score - a.score);
                 const top3 = scored.slice(0, 3).map(item => {
-                    const { grant, reason } = item;
+                    const { grant, reason, score } = item;
                     // reason을 간단한 bullet 형태로 분리
                     const reasons = reason
                         ? reason
@@ -181,7 +195,7 @@ export default function Dashboard() {
                         : ['이 공고는 회원님의 조건과 잘 맞는 것으로 판단됩니다.'];
                     return {
                         ...grant,
-                        matchReason: reasons.slice(0, 3),
+                        matchReason: [`AI 적합도 ${Math.round(score)}점`, ...reasons].slice(0, 3),
                     };
                 });
 
@@ -403,12 +417,12 @@ export default function Dashboard() {
                 </div>
                 <p className="text-xs text-slate-400 mb-4">{recommendationSubtitle}</p>
 
-                <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+                <div className="flex flex-col gap-4">
                     {loading ? (
                         [1, 2, 3].map((i) => (
                             <div
                                 key={i}
-                                className="min-w-[300px] h-[200px] bg-slate-100 rounded-2xl animate-pulse"
+                                className="w-full h-[200px] bg-slate-100 rounded-2xl animate-pulse"
                             />
                         ))
                     ) : recommendedGrants.length > 0 ? (
@@ -428,7 +442,7 @@ export default function Dashboard() {
                             />
                         ))
                     ) : !user || !isProOrPremium ? (
-                        <div className="w-full min-w-[300px] h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
+                        <div className="w-full h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
                             <p className="font-medium mb-1">
                                 AI 맞춤 추천은 Pro / 프리미엄 전용 기능입니다.
                             </p>
@@ -444,7 +458,7 @@ export default function Dashboard() {
                             </a>
                         </div>
                     ) : (
-                        <div className="w-full min-w-[300px] h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
+                        <div className="w-full h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
                             <p className="font-medium mb-1">아직 추천할 공고가 없습니다.</p>
                             <p className="text-sm text-slate-400">
                                 Admin에서 상세 분석(프리미엄)을 실행해 분석된 공고를 늘리면 더 정확한 추천을 받을
