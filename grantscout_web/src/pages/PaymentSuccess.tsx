@@ -38,14 +38,19 @@ export default function PaymentSuccess() {
     useEffect(() => {
         if (!isValidQuery) return;
 
+        let hasConfirmed = false;
         const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-            unsubscribeAuth();
+            if (hasConfirmed) return;
 
             if (!user) {
                 setStatus('error');
                 setMessage('로그인이 필요합니다. 로그인 후 다시 시도해 주세요.');
                 return;
             }
+
+            hasConfirmed = true;
+            setStatus('loading');
+            setMessage('결제 확인 중입니다...');
 
             try {
                 const confirmPayment = httpsCallable<ConfirmPaymentRequest, ConfirmPaymentResponse>(
