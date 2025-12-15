@@ -28,6 +28,13 @@ interface Grant {
     matchReason?: string[];
 }
 
+type RecommendationEmptyState = {
+    title: string;
+    description?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+};
+
 const normalizeRole = (role: unknown) => {
     return typeof role === 'string' ? role.toLowerCase() : '';
 };
@@ -44,6 +51,8 @@ export default function Dashboard() {
     const [userProfile, setUserProfile] = useState<any>(null);
     const [allGrants, setAllGrants] = useState<Grant[]>([]);
     const [recommendedGrants, setRecommendedGrants] = useState<Grant[]>([]);
+    const [recoLoading, setRecoLoading] = useState(false);
+    const [recoEmpty, setRecoEmpty] = useState<RecommendationEmptyState | null>(null);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'closing-soon' | 'newest'>('newest');
     const [sourceFilter, setSourceFilter] = useState<'all' | 'bizinfo' | 'k-startup' | 'user-upload'>('all');
@@ -120,39 +129,52 @@ export default function Dashboard() {
     // Pro 유저를 위한 실제 추천 로직 (Gemini checkSuitability 사용)
     useEffect(() => {
         const runRealRecommendation = async () => {
+            setRecoLoading(false);
+            setRecoEmpty(null);
             if (!user || !userProfile) return;
             const role = userProfile?.role;
             // Pro 이상에게만 실제 추천 로직 적용
             if (!isProOrAboveRole(role)) return;
             if (allGrants.length === 0) return;
 
-            try {
-                const buildFallbackRecommendations = (): Grant[] => {
-                    const base = [...allGrants]
-                        .sort((a, b) => {
-                            const aTime = a.deadlineTimestamp?.toMillis() ?? Number.POSITIVE_INFINITY;
-                            const bTime = b.deadlineTimestamp?.toMillis() ?? Number.POSITIVE_INFINITY;
-                            return aTime - bTime;
-                        })
-                        .slice(0, 3);
-                    return base.map(grant => ({
-                        ...grant,
-                        matchReason: grant.matchReason && grant.matchReason.length > 0
-                            ? grant.matchReason
-                            : ['아직 상세 적합도 점수는 없지만, 마감이 임박한 순으로 추천하는 공고입니다.'],
-                    }));
-                };
+            setRecommendedGrants([]);
 
+            const filledCount = [
+                userProfile?.industry,
+                userProfile?.location,
+                userProfile?.stage,
+                userProfile?.employees,
+                userProfile?.revenue,
+                (userProfile?.certifications && (userProfile.certifications as any[]).length > 0) ? 'cert' : '',
+            ].filter(Boolean).length;
+
+            if (filledCount < 3) {
+                setRecoEmpty({
+                    title: '기업 프로필 정보가 부족하여 AI 추천을 생성할 수 없습니다.',
+                    description: '업종/지역/업력 등 기업 정보를 더 입력한 뒤 다시 시도해 주세요.',
+                    ctaHref: '/profile',
+                    ctaLabel: '프로필 설정하기',
+                });
+                return;
+            }
+
+            try {
                 const checkSuitabilityFn = httpsCallable(functions, 'checkSuitability');
                 // 분석 결과가 있는 공고 중 일부만 대상으로 적합도 계산 (과도한 호출 방지)
                 const candidates = allGrants
                     .filter(g => g.analysisResult)
-                    .slice(0, 10);
+                    .slice(0, 15);
                 if (candidates.length === 0) {
-                    setRecommendedGrants(buildFallbackRecommendations());
+                    setRecoEmpty({
+                        title: '분석된 공고 데이터가 부족합니다.',
+                        description: 'AI가 추천하려면 상세 분석이 완료된 공고가 필요합니다. 잠시 후 다시 시도해 주세요.',
+                    });
                     return;
                 }
 
+                const MIN_SUITABILITY_SCORE = 60;
+
+                setRecoLoading(true);
                 const scored: { grant: Grant; score: number; reason?: string }[] = [];
                 for (const grant of candidates) {
                     try {
@@ -179,12 +201,26 @@ export default function Dashboard() {
                 }
 
                 if (scored.length === 0) {
-                    setRecommendedGrants(buildFallbackRecommendations());
+                    setRecoEmpty({
+                        title: 'AI 추천 점수를 생성하지 못했습니다.',
+                        description: '일시적인 오류일 수 있습니다. 잠시 후 다시 시도해 주세요.',
+                    });
                     return;
                 }
 
-                scored.sort((a, b) => b.score - a.score);
-                const top3 = scored.slice(0, 3).map(item => {
+                const matched = scored
+                    .filter((item) => item.score >= MIN_SUITABILITY_SCORE)
+                    .sort((a, b) => b.score - a.score);
+
+                if (matched.length === 0) {
+                    setRecoEmpty({
+                        title: '우리 기업과 충분히 맞는 공고를 찾지 못했습니다.',
+                        description: `AI Pick은 적합도 ${MIN_SUITABILITY_SCORE}점 이상만 노출합니다. 프로필을 더 구체적으로 입력하면 결과가 달라질 수 있습니다.`,
+                    });
+                    return;
+                }
+
+                const top3 = matched.slice(0, 3).map(item => {
                     const { grant, reason, score } = item;
                     // reason을 간단한 bullet 형태로 분리
                     const reasons = reason
@@ -202,6 +238,12 @@ export default function Dashboard() {
                 setRecommendedGrants(top3);
             } catch (e) {
                 console.error('runRealRecommendation failed', e);
+                setRecoEmpty({
+                    title: 'AI 추천 생성 중 오류가 발생했습니다.',
+                    description: '잠시 후 다시 시도해 주세요.',
+                });
+            } finally {
+                setRecoLoading(false);
             }
         };
 
@@ -412,13 +454,13 @@ export default function Dashboard() {
             {/* Section 1: Recommended Grants (Slide) */}
             <section>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
-                    <span className="text-lg font-bold text-slate-900">오늘의 추천 3</span>
+                    <span className="text-lg font-bold text-slate-900">오늘의 추천</span>
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">AI Pick</span>
                 </div>
                 <p className="text-xs text-slate-400 mb-4">{recommendationSubtitle}</p>
 
                 <div className="flex flex-col gap-4">
-                    {loading ? (
+                    {loading || recoLoading ? (
                         [1, 2, 3].map((i) => (
                             <div
                                 key={i}
@@ -459,11 +501,18 @@ export default function Dashboard() {
                         </div>
                     ) : (
                         <div className="w-full h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
-                            <p className="font-medium mb-1">아직 추천할 공고가 없습니다.</p>
-                            <p className="text-sm text-slate-400">
-                                Admin에서 상세 분석(프리미엄)을 실행해 분석된 공고를 늘리면 더 정확한 추천을 받을
-                                수 있습니다.
+                            <p className="font-medium mb-1">{recoEmpty?.title || '아직 추천할 공고가 없습니다.'}</p>
+                            <p className="text-sm text-slate-400 mb-3">
+                                {recoEmpty?.description || '프로필을 더 구체적으로 입력하면 추천 정확도가 올라갑니다.'}
                             </p>
+                            {recoEmpty?.ctaHref && recoEmpty?.ctaLabel && (
+                                <a
+                                    href={recoEmpty.ctaHref}
+                                    className="inline-flex items-center justify-center px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                                >
+                                    {recoEmpty.ctaLabel}
+                                </a>
+                            )}
                         </div>
                     )}
                 </div>
