@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
-import { collection, query, orderBy, limit, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { X, Star } from 'lucide-react';
+import { collection, query, orderBy, limit, getDocs, Timestamp, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, functions } from '../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -62,6 +62,8 @@ export default function Dashboard() {
     const ITEMS_PER_PAGE = 10;
     const [analysisPreviewGrant, setAnalysisPreviewGrant] = useState<Grant | null>(null);
     const [selectedRecoGrant, setSelectedRecoGrant] = useState<Grant | null>(null);
+    const [favoriteIds, setFavoriteIds] = useState<Record<string, boolean>>({});
+    const [favoritesOnly, setFavoritesOnly] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -110,6 +112,28 @@ export default function Dashboard() {
 
         fetchGrants();
     }, []);
+
+    useEffect(() => {
+        const fetchFavorites = async () => {
+            if (!user) {
+                setFavoriteIds({});
+                setFavoritesOnly(false);
+                return;
+            }
+            try {
+                const snapshot = await getDocs(collection(db, 'users', user.uid, 'favorites'));
+                const next: Record<string, boolean> = {};
+                snapshot.forEach((docSnap) => {
+                    next[docSnap.id] = true;
+                });
+                setFavoriteIds(next);
+            } catch (error) {
+                console.error('Error fetching favorites:', error);
+            }
+        };
+
+        fetchFavorites();
+    }, [user]);
 
     useEffect(() => {
         // URL 쿼리 파라미터(source)를 기반으로 초기 sourceFilter 설정
@@ -352,6 +376,51 @@ export default function Dashboard() {
         });
     };
 
+    const isFavorite = (grantId: string) => {
+        return !!favoriteIds[grantId];
+    };
+
+    const toggleFavorite = async (grant: Grant) => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+        const grantId = grant.id;
+        const favRef = doc(db, 'users', user.uid, 'favorites', grantId);
+        const fav = isFavorite(grantId);
+
+        try {
+            if (fav) {
+                await deleteDoc(favRef);
+                setFavoriteIds((prev) => {
+                    const next = { ...prev };
+                    delete next[grantId];
+                    return next;
+                });
+                return;
+            }
+
+            await setDoc(
+                favRef,
+                {
+                    grantId,
+                    source: grant.source || null,
+                    title: getGrantTitle(grant),
+                    link: grant.link || null,
+                    createdAt: serverTimestamp(),
+                },
+                { merge: true },
+            );
+            setFavoriteIds((prev) => ({
+                ...prev,
+                [grantId]: true,
+            }));
+        } catch (error) {
+            console.error('toggleFavorite failed:', error);
+            alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+        }
+    };
+
     // Check if profile is complete (Basic check)
     const isProfileComplete = userProfile?.industry && userProfile?.location;
     const userRole = normalizeRole(userProfile?.role);
@@ -383,12 +452,17 @@ export default function Dashboard() {
     })();
 
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const favoriteCount = Object.keys(favoriteIds).length;
 
     // Filter Logic
     const filteredGrants = [...allGrants]
         .filter((grant) => {
             if (sourceFilter === 'all') return true;
             return grant.source === sourceFilter;
+        })
+        .filter((grant) => {
+            if (!favoritesOnly) return true;
+            return isFavorite(grant.id);
         })
         .filter((grant) => {
             if (!normalizedQuery) return true;
@@ -494,6 +568,8 @@ export default function Dashboard() {
                                 }}
                                 onClick={() => setSelectedRecoGrant(grant)}
                                 onAskAi={() => handleAskAiForGrant(grant)}
+                                isFavorite={isFavorite(grant.id)}
+                                onToggleFavorite={() => toggleFavorite(grant)}
                             />
                         ))
                     ) : !user || !isProOrPremium ? (
@@ -566,6 +642,30 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex gap-3 items-center justify-end">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!user) {
+                                    navigate('/login');
+                                    return;
+                                }
+                                setFavoritesOnly((prev) => !prev);
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all cursor-pointer border ${favoritesOnly
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'
+                                }`}
+                            title={user ? '즐겨찾기만 보기' : '로그인이 필요합니다'}
+                        >
+                            <Star
+                                size={14}
+                                className={favoritesOnly ? 'text-amber-600' : 'text-slate-400'}
+                                fill={favoritesOnly ? 'currentColor' : 'none'}
+                            />
+                            <span>
+                                즐겨찾기{favoriteCount > 0 ? ` (${favoriteCount})` : ''}
+                            </span>
+                        </button>
                         <div className="flex gap-1 bg-slate-50 p-1 rounded-lg">
                             <button
                                 onClick={() => setSourceFilter('all')}
@@ -649,6 +749,24 @@ export default function Dashboard() {
                                                     상세분석
                                                 </button>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleFavorite(grant);
+                                                }}
+                                                className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors ${isFavorite(grant.id)
+                                                        ? 'bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-100'
+                                                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                                    }`}
+                                                title={isFavorite(grant.id) ? '즐겨찾기 해제' : '즐겨찾기'}
+                                            >
+                                                <Star
+                                                    size={12}
+                                                    className={isFavorite(grant.id) ? 'text-amber-500' : 'text-slate-400'}
+                                                    fill={isFavorite(grant.id) ? 'currentColor' : 'none'}
+                                                />
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -828,6 +946,23 @@ export default function Dashboard() {
                                 className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                             >
                                 닫기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => toggleFavorite(selectedRecoGrant)}
+                                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${isFavorite(selectedRecoGrant.id)
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span className="inline-flex items-center gap-1">
+                                    <Star
+                                        size={14}
+                                        className={isFavorite(selectedRecoGrant.id) ? 'text-amber-600' : 'text-slate-400'}
+                                        fill={isFavorite(selectedRecoGrant.id) ? 'currentColor' : 'none'}
+                                    />
+                                    {isFavorite(selectedRecoGrant.id) ? '즐겨찾기 해제' : '즐겨찾기'}
+                                </span>
                             </button>
                             <button
                                 type="button"

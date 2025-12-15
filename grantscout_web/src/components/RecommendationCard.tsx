@@ -1,4 +1,4 @@
-import { Building2, MapPin, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Building2, MapPin, ArrowRight, CheckCircle2, Star } from 'lucide-react';
 
 interface Grant {
     id: string;
@@ -14,9 +14,11 @@ interface RecommendationCardProps {
     grant: Grant;
     onClick: () => void;
     onAskAi?: () => void;
+    isFavorite?: boolean;
+    onToggleFavorite?: () => void;
 }
 
-export default function RecommendationCard({ grant, onClick, onAskAi }: RecommendationCardProps) {
+export default function RecommendationCard({ grant, onClick, onAskAi, isFavorite, onToggleFavorite }: RecommendationCardProps) {
     // Calculate D-Day
     const today = new Date();
     const end = new Date(grant.endDate);
@@ -95,6 +97,26 @@ export default function RecommendationCard({ grant, onClick, onAskAi }: Recommen
                         ~ {grant.endDate} 마감
                     </span>
                     <div className="flex items-center gap-2">
+                        {onToggleFavorite && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleFavorite();
+                                }}
+                                className={`p-1.5 rounded-full border transition-colors cursor-pointer ${isFavorite
+                                        ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                title={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                            >
+                                <Star
+                                    size={14}
+                                    className={isFavorite ? 'text-amber-600' : 'text-slate-400'}
+                                    fill={isFavorite ? 'currentColor' : 'none'}
+                                />
+                            </button>
+                        )}
                         {onAskAi && (
                             <button
                                 type="button"
