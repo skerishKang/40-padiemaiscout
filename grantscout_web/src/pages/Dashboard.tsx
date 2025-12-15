@@ -161,9 +161,11 @@ export default function Dashboard() {
             try {
                 const checkSuitabilityFn = httpsCallable(functions, 'checkSuitability');
                 // 분석 결과가 있는 공고 중 일부만 대상으로 적합도 계산 (과도한 호출 방지)
+                const normalizedRole = normalizeRole(role);
+                const candidateLimit = (normalizedRole === 'premium' || normalizedRole === 'admin') ? 30 : 15;
                 const candidates = allGrants
                     .filter(g => g.analysisResult)
-                    .slice(0, 15);
+                    .slice(0, candidateLimit);
                 if (candidates.length === 0) {
                     setRecoEmpty({
                         title: '분석된 공고 데이터가 부족합니다.',
@@ -365,6 +367,9 @@ export default function Dashboard() {
         }
         if (!isProOrPremium) {
             return '현재 일반 회원입니다. Pro / 프리미엄으로 업그레이드하면 Gemini 기반 AI 맞춤 추천을 받을 수 있습니다.';
+        }
+        if (userRole === 'premium' || userRole === 'admin') {
+            return '프리미엄은 더 많은 공고를 평가하여 AI 맞춤 추천 정확도를 높입니다.';
         }
         return '기업 프로필과 Gemini 상세 분석을 기반으로 한 AI 맞춤 추천 결과입니다.';
     })();
