@@ -537,6 +537,8 @@ const crypto = require("crypto");
 const bizinfoSchedulerDocRef = db.collection("system_settings").doc("bizinfoScheduler");
 const DEFAULT_BIZINFO_SCHEDULER_CONFIG = {
   enabled: false,
+  mode: "interval",
+  dailyTimes: ["09:00"],
   intervalMinutes: 60,
 };
 
@@ -561,6 +563,58 @@ function parseIsoDateToUtcStart(isoDate) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function clampRangeDays(value) {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 7;
+  const v = Math.round(n);
+  if (v < 1) return 1;
+  if (v > 7) return 7;
+  return v;
+}
+
+function addDaysUtc(date, days) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function parseDailyTimeToMinutes(value) {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const hh = parseInt(match[1], 10);
+  const mm = parseInt(match[2], 10);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  if (hh < 0 || hh > 23) return null;
+  if (mm < 0 || mm > 59) return null;
+  if (mm % 15 !== 0) return null;
+  return hh * 60 + mm;
+}
+
+function normalizeDailyTimes(values) {
+  const list = Array.isArray(values) ? values : [];
+  const cleaned = list
+    .map((t) => (typeof t === "string" ? t.trim() : ""))
+    .filter((t) => !!parseDailyTimeToMinutes(t));
+  const unique = Array.from(new Set(cleaned)).sort();
+  return unique.slice(0, 4);
+}
+
+function getSeoulNowParts(date) {
+  const base = date instanceof Date ? date : new Date();
+  const d = new Date(base.getTime() + 9 * 60 * 60 * 1000);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const hour = d.getUTCHours();
+  const minute = d.getUTCMinutes();
+  return {
+    ymd: `${year}-${month}-${day}`,
+    hour,
+    minute,
+    totalMinutes: hour * 60 + minute,
+  };
+}
+
 function buildGrantDocId(source, link) {
   const base = `${String(source || "")}::${String(link || "")}`;
   const hash = crypto.createHash("sha256").update(base).digest("hex");
@@ -571,6 +625,13 @@ async function getBizinfoSchedulerConfigInternal() {
   const snap = await bizinfoSchedulerDocRef.get();
   const data = snap.exists ? snap.data() : {};
   const config = Object.assign({}, DEFAULT_BIZINFO_SCHEDULER_CONFIG, data || {});
+  if (config.mode !== "daily" && config.mode !== "interval") {
+    config.mode = DEFAULT_BIZINFO_SCHEDULER_CONFIG.mode;
+  }
+  config.dailyTimes = normalizeDailyTimes(config.dailyTimes);
+  if (config.mode === "daily" && config.dailyTimes.length === 0) {
+    config.dailyTimes = DEFAULT_BIZINFO_SCHEDULER_CONFIG.dailyTimes.slice();
+  }
   if (!config.intervalMinutes || typeof config.intervalMinutes !== "number" || config.intervalMinutes <= 0) {
     config.intervalMinutes = DEFAULT_BIZINFO_SCHEDULER_CONFIG.intervalMinutes;
   }
@@ -581,6 +642,12 @@ async function applyBizinfoSchedulerConfigUpdate(updates) {
   const safeUpdates = {};
   if (typeof updates.enabled === "boolean") {
     safeUpdates.enabled = updates.enabled;
+  }
+  if (typeof updates.mode === "string") {
+    safeUpdates.mode = updates.mode === "daily" ? "daily" : "interval";
+  }
+  if (Array.isArray(updates.dailyTimes)) {
+    safeUpdates.dailyTimes = normalizeDailyTimes(updates.dailyTimes);
   }
   if (typeof updates.intervalMinutes === "number" && updates.intervalMinutes > 0) {
     const min = 15;
@@ -608,88 +675,123 @@ async function performBizinfoScraping(options) {
 
   const sinceDate = options && typeof options.sinceDate === "string" ? options.sinceDate : null;
   const sinceUtc = sinceDate ? parseIsoDateToUtcStart(sinceDate) : null;
+  const rangeDays = options && typeof options.rangeDays !== "undefined" ? clampRangeDays(options.rangeDays) : 7;
+  const endUtcExclusive = sinceUtc ? addDaysUtc(sinceUtc, rangeDays) : null;
+
+  const maxPages = 20;
+  const rows = 15;
 
   try {
-    const response = await axios.get(targetUrl);
-    const html = response.data;
-    const $ = cheerio.load(html);
     const scrapedItems = [];
+    for (let page = 1; page <= maxPages; page += 1) {
+      const pageUrl = page === 1 ? targetUrl : `${targetUrl}?rows=${rows}&cpage=${page}`;
+      const response = await axios.get(pageUrl);
+      const html = response.data;
+      const $ = cheerio.load(html);
+      const pageItems = [];
+      let minRowDate = null;
 
-    // 메인 공고 리스트 테이블 구조에 맞춰 파싱
-    // 번호 | 지원분야 | 지원사업명 | 신청기간 | 소관부처·지자체 | 사업수행기관 | 등록일 | 조회수
-    $("div.table_Type_1 table tbody tr").each((index, element) => {
-      const tds = $(element).find("td");
-      // header row 또는 기타 행 스킵
-      if (tds.length < 8) {
-        return;
-      }
-
-      const rawTitle = $(tds[2]).text().trim();
-      const titleLink = $(tds[2]).find("a").attr("href") || "";
-      const periodText = $(tds[3]).text().replace(/\s+/g, " ").trim();
-      const department = $(tds[4]).text().trim();
-      const date = $(tds[6]).text().trim(); // 등록일
-
-      if (sinceUtc) {
-        const normalizedDate = normalizeIsoDateString(date);
-        const rowDate = normalizedDate ? parseIsoDateToUtcStart(normalizedDate) : null;
-        if (rowDate && rowDate.getTime() < sinceUtc.getTime()) {
+      $("div.table_Type_1 table tbody tr").each((index, element) => {
+        const tds = $(element).find("td");
+        if (tds.length < 8) {
           return;
         }
-      }
 
-      const title = rawTitle.replace(/\s+/g, " ");
-      if (!title) {
-        return;
-      }
+        const rawTitle = $(tds[2]).text().trim();
+        const titleLink = $(tds[2]).find("a").attr("href") || "";
+        const periodText = $(tds[3]).text().replace(/\s+/g, " ").trim();
+        const department = $(tds[4]).text().trim();
+        const date = $(tds[6]).text().trim();
 
-      // 상세 페이지 링크를 절대 URL로 변환
-      let link = "";
-      if (titleLink) {
-        if (titleLink.startsWith("http")) {
-          link = titleLink;
-        } else if (titleLink.startsWith("/")) {
-          link = "https://www.bizinfo.go.kr" + titleLink;
-        } else {
-          link = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/" + titleLink;
-        }
-      }
-      if (!link) {
-        return;
-      }
-
-      // 신청기간 문자열에서 마감일(YYYY-MM-DD) 추출해 deadlineTimestamp 생성
-      let deadlineTimestamp = null;
-      if (periodText) {
-        const match = periodText.match(/(\d{4}-\d{2}-\d{2})\s*$/);
-        if (match) {
-          const endDateStr = match[1];
-          const parts = endDateStr.split("-");
-          const parsedDate = new Date(Date.UTC(
-            parseInt(parts[0], 10),
-            parseInt(parts[1], 10) - 1,
-            parseInt(parts[2], 10),
-          ));
-          if (!isNaN(parsedDate.getTime())) {
-            deadlineTimestamp = Timestamp.fromDate(parsedDate);
+        const normalizedDate = normalizeIsoDateString(date);
+        const rowDate = normalizedDate ? parseIsoDateToUtcStart(normalizedDate) : null;
+        if (rowDate) {
+          if (!minRowDate || rowDate.getTime() < minRowDate.getTime()) {
+            minRowDate = rowDate;
           }
         }
-      }
+        if (sinceUtc) {
+          if (!rowDate) {
+            return;
+          }
+          if (rowDate.getTime() < sinceUtc.getTime()) {
+            return;
+          }
+          if (endUtcExclusive && rowDate.getTime() >= endUtcExclusive.getTime()) {
+            return;
+          }
+        }
 
-      const item = {
-        title,
-        link,
-        department,
-        date,
-        period: periodText,
-        scrapedAt: new Date().toISOString(),
-      };
-      if (deadlineTimestamp) {
-        item.deadlineTimestamp = deadlineTimestamp;
-      }
+        const title = rawTitle.replace(/\s+/g, " ");
+        if (!title) {
+          return;
+        }
 
-      scrapedItems.push(item);
-    });
+        let link = "";
+        if (titleLink) {
+          if (titleLink.startsWith("http")) {
+            link = titleLink;
+          } else if (titleLink.startsWith("/")) {
+            link = "https://www.bizinfo.go.kr" + titleLink;
+          } else {
+            link = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/" + titleLink;
+          }
+        }
+        if (!link) {
+          return;
+        }
+
+        let deadlineTimestamp = null;
+        if (periodText) {
+          const match = periodText.match(/(\d{4}-\d{2}-\d{2})\s*$/);
+          if (match) {
+            const endDateStr = match[1];
+            const parts = endDateStr.split("-");
+            const parsedDate = new Date(Date.UTC(
+              parseInt(parts[0], 10),
+              parseInt(parts[1], 10) - 1,
+              parseInt(parts[2], 10),
+            ));
+            if (!isNaN(parsedDate.getTime())) {
+              deadlineTimestamp = Timestamp.fromDate(parsedDate);
+            }
+          }
+        }
+
+        const item = {
+          title,
+          link,
+          department,
+          date,
+          period: periodText,
+          contentHash: crypto
+            .createHash("sha256")
+            .update(JSON.stringify({
+              title,
+              department: department || null,
+              date: date || null,
+              period: periodText || null,
+              deadline: deadlineTimestamp ? deadlineTimestamp.toMillis() : null,
+            }))
+            .digest("hex"),
+          scrapedAt: new Date().toISOString(),
+        };
+        if (deadlineTimestamp) {
+          item.deadlineTimestamp = deadlineTimestamp;
+        }
+
+        pageItems.push(item);
+      });
+
+      if (pageItems.length === 0) {
+        break;
+      }
+      scrapedItems.push(...pageItems);
+
+      if (sinceUtc && minRowDate && minRowDate.getTime() < sinceUtc.getTime()) {
+        break;
+      }
+    }
 
     if (scrapedItems.length === 0) {
       console.log("No items scraped.");
@@ -701,10 +803,23 @@ async function performBizinfoScraping(options) {
     });
     const snaps = docRefs.length > 0 ? await db.getAll(...docRefs) : [];
 
+    let newCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+
     const batch = db.batch();
+    let writeOps = 0;
     snaps.forEach((snap, idx) => {
       const item = scrapedItems[idx];
       const docRef = docRefs[idx];
+      const existingHash = snap.exists ? ((snap.data() || {}).contentHash || null) : null;
+      const nextHash = item && item.contentHash ? item.contentHash : null;
+
+      if (snap.exists && existingHash && nextHash && existingHash === nextHash) {
+        skippedCount += 1;
+        return;
+      }
+
       const payload = {
         ...item,
         source: "bizinfo",
@@ -712,16 +827,26 @@ async function performBizinfoScraping(options) {
       };
       if (!snap.exists) {
         payload.createdAt = FieldValue.serverTimestamp();
+        newCount += 1;
+      } else {
+        updatedCount += 1;
       }
       batch.set(docRef, payload, { merge: true });
+      writeOps += 1;
     });
-    await batch.commit();
+    if (writeOps > 0) {
+      await batch.commit();
+    }
 
     return {
       success: true,
-      message: `${scrapedItems.length}건의 공고를 스크래핑하여 저장했습니다.`,
+      message: `${scrapedItems.length}건 스크래핑(신규 ${newCount} / 업데이트 ${updatedCount} / 스킵 ${skippedCount})`,
       data: scrapedItems,
-      count: scrapedItems.length
+      count: scrapedItems.length,
+      savedCount: newCount + updatedCount,
+      newCount,
+      updatedCount,
+      skippedCount,
     };
   } catch (error) {
     console.error("Scraping Logic Error:", error);
@@ -735,109 +860,150 @@ async function performKStartupScraping(options) {
 
   const sinceDate = options && typeof options.sinceDate === "string" ? options.sinceDate : null;
   const sinceUtc = sinceDate ? parseIsoDateToUtcStart(sinceDate) : null;
+  const rangeDays = options && typeof options.rangeDays !== "undefined" ? clampRangeDays(options.rangeDays) : 7;
+  const endUtcExclusive = sinceUtc ? addDaysUtc(sinceUtc, rangeDays) : null;
+
+  const maxPages = 20;
 
   try {
-    const response = await axios.get(targetUrl);
-    const html = response.data;
-    const $ = cheerio.load(html);
     const scrapedItems = [];
+    for (let page = 1; page <= maxPages; page += 1) {
+      const pageUrl = page === 1 ? targetUrl : `${targetUrl}?page=${page}&pbancClssCd=PBC010`;
+      const response = await axios.get(pageUrl);
+      const html = response.data;
+      const $ = cheerio.load(html);
+      const pageItems = [];
+      let minRowDate = null;
 
-    // "마감일자 YYYY-MM-DD" 텍스트를 포함하는 리스트 항목을 기준으로 파싱
-    $("li:contains('마감일자')").each((index, element) => {
-      const $el = $(element);
-      const text = $el.text().replace(/\s+/g, " ").trim();
-      if (!text || !text.includes("마감일자")) {
-        return;
-      }
-
-      // 제목 & 링크: a/strong/h4 중 첫 번째 요소 기준
-      const titleElement = $el.find("a, strong, h4").first();
-      const rawTitle = titleElement.text().trim() || text;
-      const title = rawTitle.replace(/\s+/g, " ");
-      if (!title) {
-        return;
-      }
-
-      let href = titleElement.attr("href") || "";
-      let link = "";
-      if (href) {
-        if (href.startsWith("javascript:")) {
-          // K-Startup에서 javascript:go_view(...) 형태의 링크는 자바스크립트로 상세 페이지를 여는데,
-          // 정적 스크래핑 환경에서는 직접 실행할 수 없으므로 목록 페이지로 연결한다.
-          const jsKey = crypto.createHash("sha256").update(text).digest("hex").slice(0, 12);
-          link = `${targetUrl}#${jsKey}`;
-        } else if (href.startsWith("http")) {
-          link = href;
-        } else if (href.startsWith("/")) {
-          link = "https://www.k-startup.go.kr" + href;
-        } else {
-          link = "https://www.k-startup.go.kr" + (href.startsWith("?") ? href : "/" + href);
+      if (page > 1) {
+        const activePageRaw = $(".paginate a.active").first().text().trim();
+        const activePage = Number(activePageRaw);
+        if (Number.isFinite(activePage) && activePage !== page) {
+          break;
         }
       }
-      if (!link) {
-        return;
-      }
 
-      // 마감일자 추출
-      const deadlineMatch = text.match(/마감일자\s+(\d{4}-\d{2}-\d{2})/);
-      let deadlineTimestamp = null;
-      let periodText = null;
-      if (deadlineMatch) {
-        periodText = deadlineMatch[1];
-        const parts = periodText.split("-");
-        if (parts.length === 3) {
-          const parsedDate = new Date(Date.UTC(
-            parseInt(parts[0], 10),
-            parseInt(parts[1], 10) - 1,
-            parseInt(parts[2], 10),
-          ));
-          if (!isNaN(parsedDate.getTime())) {
-            deadlineTimestamp = Timestamp.fromDate(parsedDate);
+      $("li.notice:contains('마감일자')").each((index, element) => {
+        const $el = $(element);
+        const text = $el.text().replace(/\s+/g, " ").trim();
+        if (!text || !text.includes("마감일자")) {
+          return;
+        }
+
+        const titleElement = $el.find("a, strong, h4").first();
+        const rawTitle = titleElement.text().trim() || text;
+        const title = rawTitle.replace(/\s+/g, " ");
+        if (!title) {
+          return;
+        }
+
+        let href = titleElement.attr("href") || "";
+        let link = "";
+        if (href) {
+          if (href.startsWith("javascript:")) {
+            const idMatch = href.match(/go_view\((\d+)\)/);
+            const id = idMatch ? idMatch[1] : null;
+            link = id ? `${targetUrl}#${id}` : `${targetUrl}#${crypto.createHash("sha256").update(text).digest("hex").slice(0, 12)}`;
+          } else if (href.startsWith("http")) {
+            link = href;
+          } else if (href.startsWith("/")) {
+            link = "https://www.k-startup.go.kr" + href;
+          } else {
+            link = "https://www.k-startup.go.kr" + (href.startsWith("?") ? href : "/" + href);
           }
         }
-      }
-
-      // 기관명 추출
-      let department = null;
-      // 1차: 기존 패턴 (일부 공고에서 사용)
-      const deptMatch = text.match(/마감일자\s+\d{4}-\d{2}-\d{2}\s+(.+?)\s+조회/);
-      if (deptMatch) {
-        department = deptMatch[1].trim();
-      }
-      // 2차: "창업보육센터 지원사업 호서대학교산학협력단 등록일자 ..." 형태 처리
-      if (!department) {
-        const deptMatch2 = text.match(/지원사업\s+(.+?)\s+등록일자/);
-        if (deptMatch2) {
-          department = deptMatch2[1].trim();
-        }
-      }
-
-      const postedDateMatch = text.match(/등록일자\s+(\d{4}-\d{2}-\d{2})/);
-      const postedDate = postedDateMatch ? postedDateMatch[1] : null;
-      if (sinceUtc) {
-        if (!postedDate) {
+        if (!link) {
           return;
         }
-        const rowDate = parseIsoDateToUtcStart(postedDate);
-        if (rowDate && rowDate.getTime() < sinceUtc.getTime()) {
-          return;
+
+        // 마감일자 추출
+        const deadlineMatch = text.match(/마감일자\s+(\d{4}-\d{2}-\d{2})/);
+        let deadlineTimestamp = null;
+        let periodText = null;
+        if (deadlineMatch) {
+          periodText = deadlineMatch[1];
+          const parts = periodText.split("-");
+          if (parts.length === 3) {
+            const parsedDate = new Date(Date.UTC(
+              parseInt(parts[0], 10),
+              parseInt(parts[1], 10) - 1,
+              parseInt(parts[2], 10),
+            ));
+            if (!isNaN(parsedDate.getTime())) {
+              deadlineTimestamp = Timestamp.fromDate(parsedDate);
+            }
+          }
         }
-      }
 
-      const item = {
-        title,
-        link,
-        department: department || null,
-        period: periodText,
-        date: postedDate,
-        scrapedAt: new Date().toISOString(),
-      };
-      if (deadlineTimestamp) {
-        item.deadlineTimestamp = deadlineTimestamp;
-      }
+        // 기관명 추출
+        let department = null;
+        // 1차: 기존 패턴 (일부 공고에서 사용)
+        const deptMatch = text.match(/마감일자\s+\d{4}-\d{2}-\d{2}\s+(.+?)\s+조회/);
+        if (deptMatch) {
+          department = deptMatch[1].trim();
+        }
+        // 2차: "창업보육센터 지원사업 호서대학교산학협력단 등록일자 ..." 형태 처리
+        if (!department) {
+          const deptMatch2 = text.match(/지원사업\s+(.+?)\s+등록일자/);
+          if (deptMatch2) {
+            department = deptMatch2[1].trim();
+          }
+        }
 
-      scrapedItems.push(item);
-    });
+        const postedDateMatch = text.match(/등록일자\s+(\d{4}-\d{2}-\d{2})/);
+        const postedDate = postedDateMatch ? postedDateMatch[1] : null;
+        const rowDate = postedDate ? parseIsoDateToUtcStart(postedDate) : null;
+        if (rowDate) {
+          if (!minRowDate || rowDate.getTime() < minRowDate.getTime()) {
+            minRowDate = rowDate;
+          }
+        }
+        if (sinceUtc) {
+          if (!rowDate) {
+            return;
+          }
+          if (rowDate.getTime() < sinceUtc.getTime()) {
+            return;
+          }
+          if (endUtcExclusive && rowDate.getTime() >= endUtcExclusive.getTime()) {
+            return;
+          }
+        }
+
+        const item = {
+          title,
+          link,
+          department: department || null,
+          period: periodText,
+          date: postedDate,
+          contentHash: crypto
+            .createHash("sha256")
+            .update(JSON.stringify({
+              title,
+              department: department || null,
+              date: postedDate || null,
+              period: periodText || null,
+              deadline: deadlineTimestamp ? deadlineTimestamp.toMillis() : null,
+            }))
+            .digest("hex"),
+          scrapedAt: new Date().toISOString(),
+        };
+        if (deadlineTimestamp) {
+          item.deadlineTimestamp = deadlineTimestamp;
+        }
+
+        pageItems.push(item);
+      });
+
+      if (pageItems.length === 0) {
+        break;
+      }
+      scrapedItems.push(...pageItems);
+
+      if (sinceUtc && minRowDate && minRowDate.getTime() < sinceUtc.getTime()) {
+        break;
+      }
+    }
 
     if (scrapedItems.length === 0) {
       console.log("No K-Startup items scraped.");
@@ -853,10 +1019,23 @@ async function performKStartupScraping(options) {
     });
     const snaps = docRefs.length > 0 ? await db.getAll(...docRefs) : [];
 
+    let newCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+
     const batch = db.batch();
+    let writeOps = 0;
     snaps.forEach((snap, idx) => {
       const item = scrapedItems[idx];
       const docRef = docRefs[idx];
+      const existingHash = snap.exists ? ((snap.data() || {}).contentHash || null) : null;
+      const nextHash = item && item.contentHash ? item.contentHash : null;
+
+      if (snap.exists && existingHash && nextHash && existingHash === nextHash) {
+        skippedCount += 1;
+        return;
+      }
+
       const payload = {
         ...item,
         source: "k-startup",
@@ -864,16 +1043,26 @@ async function performKStartupScraping(options) {
       };
       if (!snap.exists) {
         payload.createdAt = FieldValue.serverTimestamp();
+        newCount += 1;
+      } else {
+        updatedCount += 1;
       }
       batch.set(docRef, payload, { merge: true });
+      writeOps += 1;
     });
-    await batch.commit();
+    if (writeOps > 0) {
+      await batch.commit();
+    }
 
     return {
       success: true,
-      message: `K-Startup에서 ${scrapedItems.length}건의 공고를 스크래핑하여 저장했습니다.`,
+      message: `K-Startup ${scrapedItems.length}건 스크래핑(신규 ${newCount} / 업데이트 ${updatedCount} / 스킵 ${skippedCount})`,
       data: scrapedItems,
       count: scrapedItems.length,
+      savedCount: newCount + updatedCount,
+      newCount,
+      updatedCount,
+      skippedCount,
     };
   } catch (error) {
     console.error("K-Startup Scraping Logic Error:", error);
@@ -1169,6 +1358,12 @@ exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, conte
     if (typeof payload.intervalMinutes === "number") {
       updates.intervalMinutes = payload.intervalMinutes;
     }
+    if (typeof payload.mode === "string") {
+      updates.mode = payload.mode;
+    }
+    if (Array.isArray(payload.dailyTimes)) {
+      updates.dailyTimes = payload.dailyTimes;
+    }
   }
   if (Object.keys(updates).length === 0) {
     throw new functions.https.HttpsError(
@@ -1202,8 +1397,16 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
     const payload = request && typeof request === "object" && "data" in request ?
       request.data :
       request;
-    const sinceDate = payload && typeof payload.sinceDate === "string" ? payload.sinceDate : null;
-    const result = await performBizinfoScraping({ sinceDate });
+    const sinceDateRaw = payload && typeof payload.sinceDate === "string" ? payload.sinceDate : null;
+    const sinceDate = normalizeIsoDateString(sinceDateRaw);
+    if (!sinceDate) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "기준일(sinceDate, YYYY-MM-DD)을 입력해주세요.",
+      );
+    }
+    const rangeDays = payload && typeof payload.rangeDays !== "undefined" ? clampRangeDays(payload.rangeDays) : 7;
+    const result = await performBizinfoScraping({ sinceDate, rangeDays });
     try {
       await logAdminSync(
         "scrape_bizinfo",
@@ -1211,7 +1414,12 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
         result && result.message ? result.message : "Bizinfo 스크래핑 성공",
         {
           count: result && typeof result.count === "number" ? result.count : null,
+          savedCount: result && typeof result.savedCount === "number" ? result.savedCount : null,
+          newCount: result && typeof result.newCount === "number" ? result.newCount : null,
+          updatedCount: result && typeof result.updatedCount === "number" ? result.updatedCount : null,
+          skippedCount: result && typeof result.skippedCount === "number" ? result.skippedCount : null,
           sinceDate: sinceDate || null,
+          rangeDays,
         },
         context,
       );
@@ -1244,8 +1452,16 @@ exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
     const payload = request && typeof request === "object" && "data" in request ?
       request.data :
       request;
-    const sinceDate = payload && typeof payload.sinceDate === "string" ? payload.sinceDate : null;
-    const result = await performKStartupScraping({ sinceDate });
+    const sinceDateRaw = payload && typeof payload.sinceDate === "string" ? payload.sinceDate : null;
+    const sinceDate = normalizeIsoDateString(sinceDateRaw);
+    if (!sinceDate) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "기준일(sinceDate, YYYY-MM-DD)을 입력해주세요.",
+      );
+    }
+    const rangeDays = payload && typeof payload.rangeDays !== "undefined" ? clampRangeDays(payload.rangeDays) : 7;
+    const result = await performKStartupScraping({ sinceDate, rangeDays });
     try {
       await logAdminSync(
         "scrape_k_startup",
@@ -1253,7 +1469,12 @@ exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
         result && result.message ? result.message : "K-Startup 스크래핑 성공",
         {
           count: result && typeof result.count === "number" ? result.count : null,
+          savedCount: result && typeof result.savedCount === "number" ? result.savedCount : null,
+          newCount: result && typeof result.newCount === "number" ? result.newCount : null,
+          updatedCount: result && typeof result.updatedCount === "number" ? result.updatedCount : null,
+          skippedCount: result && typeof result.skippedCount === "number" ? result.skippedCount : null,
           sinceDate: sinceDate || null,
+          rangeDays,
         },
         context,
       );
@@ -1292,33 +1513,88 @@ exports.scheduledScrapeBizinfo = onSchedule({
 }, async (event) => {
   console.log("Running scheduled Bizinfo scraping (interval mode)...");
   try {
-    const config = await getBizinfoSchedulerConfigInternal();
-    if (!config.enabled) {
-      console.log("Bizinfo scheduler is disabled; skipping run.");
-      return;
-    }
-    const intervalMinutes = typeof config.intervalMinutes === "number" && config.intervalMinutes > 0 ?
-      config.intervalMinutes :
-      DEFAULT_BIZINFO_SCHEDULER_CONFIG.intervalMinutes;
-    let lastRunAt = config.lastRunAt;
-    let shouldRun = true;
-    if (lastRunAt && typeof lastRunAt.toDate === "function") {
-      const lastRunDate = lastRunAt.toDate();
-      const now = new Date();
-      const diffMs = now.getTime() - lastRunDate.getTime();
-      const diffMinutes = diffMs / (1000 * 60);
-      if (diffMinutes < intervalMinutes) {
-        shouldRun = false;
+    const now = new Date();
+    const seoul = getSeoulNowParts(now);
+    const nowBucket = Math.floor(seoul.totalMinutes / 15) * 15;
+    const runKey = `${seoul.ymd}_${String(nowBucket).padStart(4, "0")}`;
+
+    const lock = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(bizinfoSchedulerDocRef);
+      const data = snap.exists ? snap.data() : {};
+      const config = Object.assign({}, DEFAULT_BIZINFO_SCHEDULER_CONFIG, data || {});
+
+      if (config.mode !== "daily" && config.mode !== "interval") {
+        config.mode = DEFAULT_BIZINFO_SCHEDULER_CONFIG.mode;
       }
-    }
-    if (!shouldRun) {
-      console.log("Skipping Bizinfo scraping; interval has not elapsed yet.");
+      config.dailyTimes = normalizeDailyTimes(config.dailyTimes);
+      if (config.mode === "daily" && config.dailyTimes.length === 0) {
+        config.dailyTimes = DEFAULT_BIZINFO_SCHEDULER_CONFIG.dailyTimes.slice();
+      }
+      if (!config.intervalMinutes || typeof config.intervalMinutes !== "number" || config.intervalMinutes <= 0) {
+        config.intervalMinutes = DEFAULT_BIZINFO_SCHEDULER_CONFIG.intervalMinutes;
+      }
+
+      if (!config.enabled) {
+        return { shouldRun: false, reason: "disabled" };
+      }
+
+      if (config.mode === "daily") {
+        const due = config.dailyTimes.some((t) => {
+          const minutes = parseDailyTimeToMinutes(t);
+          if (minutes === null) return false;
+          return Math.floor(minutes / 15) * 15 === nowBucket;
+        });
+        if (!due) {
+          return { shouldRun: false, reason: "not_due" };
+        }
+        if (config.lastRunKey === runKey) {
+          return { shouldRun: false, reason: "already_ran" };
+        }
+      } else {
+        const intervalMinutes = config.intervalMinutes;
+        let shouldRun = true;
+        if (config.lastRunAt && typeof config.lastRunAt.toDate === "function") {
+          const lastRunDate = config.lastRunAt.toDate();
+          const diffMs = now.getTime() - lastRunDate.getTime();
+          const diffMinutes = diffMs / (1000 * 60);
+          if (diffMinutes < intervalMinutes) {
+            shouldRun = false;
+          }
+        }
+        if (!shouldRun) {
+          return { shouldRun: false, reason: "interval_not_elapsed" };
+        }
+      }
+
+      tx.set(bizinfoSchedulerDocRef, {
+        lastRunAt: FieldValue.serverTimestamp(),
+        lastRunKey: runKey,
+        lastRunError: null,
+      }, { merge: true });
+
+      return { shouldRun: true };
+    });
+
+    if (!lock || !lock.shouldRun) {
+      if (lock && lock.reason === "disabled") {
+        console.log("Bizinfo scheduler is disabled; skipping run.");
+      } else if (lock && lock.reason === "not_due") {
+        console.log("Skipping Bizinfo scraping; not a daily scheduled time.");
+      } else if (lock && lock.reason === "already_ran") {
+        console.log("Skipping Bizinfo scraping; already ran for this time slot.");
+      } else if (lock && lock.reason === "interval_not_elapsed") {
+        console.log("Skipping Bizinfo scraping; interval has not elapsed yet.");
+      } else {
+        console.log("Skipping Bizinfo scraping.");
+      }
       return;
     }
-    const result = await performBizinfoScraping();
+
+    const result = await performBizinfoScraping({ sinceDate: seoul.ymd, rangeDays: 1 });
     console.log("Scheduled scraping completed:", result.message);
     await bizinfoSchedulerDocRef.set({
       lastRunAt: FieldValue.serverTimestamp(),
+      lastRunKey: runKey,
       lastRunResult: result.message,
       lastRunError: null,
     }, { merge: true });
@@ -1330,6 +1606,10 @@ exports.scheduledScrapeBizinfo = onSchedule({
         {
           scheduled: true,
           count: result && typeof result.count === "number" ? result.count : null,
+          savedCount: result && typeof result.savedCount === "number" ? result.savedCount : null,
+          newCount: result && typeof result.newCount === "number" ? result.newCount : null,
+          updatedCount: result && typeof result.updatedCount === "number" ? result.updatedCount : null,
+          skippedCount: result && typeof result.skippedCount === "number" ? result.skippedCount : null,
         },
         null,
       );

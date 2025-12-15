@@ -8,6 +8,8 @@ import { httpsCallable } from 'firebase/functions';
 interface SchedulerConfig {
     enabled: boolean;
     intervalMinutes: number;
+    mode?: 'interval' | 'daily';
+    dailyTimes?: string[];
     lastRunAt?: string | null;
     lastRunResult?: string | null;
     lastRunError?: string | null;
@@ -27,6 +29,7 @@ interface AdminSyncLog {
     type: string;
     status: string;
     message?: string;
+    meta?: any;
     triggeredAt?: any;
     triggerEmail?: string;
 }
@@ -37,11 +40,13 @@ export default function Admin() {
     const [grantStats, setGrantStats] = useState({ totalGrants: 0, bizinfoGrants: 0, userUploadGrants: 0 });
     const [analysisStats, setAnalysisStats] = useState({ scrapedGrants: 0, analyzedScrapedGrants: 0, pendingScrapedGrants: 0 });
     const [syncSinceDate, setSyncSinceDate] = useState('');
+    const [syncRangeDays, setSyncRangeDays] = useState(7);
     const [bizinfoSyncing, setBizinfoSyncing] = useState(false);
     const [kStartupSyncing, setKStartupSyncing] = useState(false);
     const [analyzeSyncing, setAnalyzeSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState<string | null>(null);
     const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig | null>(null);
+    const [newDailyTime, setNewDailyTime] = useState('09:00');
     const [loadingScheduler, setLoadingScheduler] = useState(false);
     const [savingScheduler, setSavingScheduler] = useState(false);
     const [schedulerMessage, setSchedulerMessage] = useState<string | null>(null);
@@ -57,13 +62,20 @@ export default function Admin() {
     const LOGS_PER_PAGE = 10;
 
     const handleSyncBizinfo = async () => {
+        if (!syncSinceDate) {
+            setSyncResult('[기업마당] 실패: 기준일(sinceDate)을 선택해주세요.');
+            return;
+        }
         setBizinfoSyncing(true);
         setSyncResult(null);
         try {
             const scrapeBizinfo = httpsCallable(functions, 'scrapeBizinfo');
-            const result = await scrapeBizinfo({ sinceDate: syncSinceDate || null });
+            const result = await scrapeBizinfo({ sinceDate: syncSinceDate, rangeDays: syncRangeDays });
             const data = result.data as any;
-            setSyncResult(`[기업마당] 성공: ${data.message}`);
+            const detail = data && typeof data.newCount === 'number'
+                ? ` (신규 ${data.newCount} / 업데이트 ${data.updatedCount ?? 0} / 스킵 ${data.skippedCount ?? 0})`
+                : '';
+            setSyncResult(`[기업마당] 성공: ${data.message || ''}${detail}`);
         } catch (error: any) {
             console.error("Bizinfo sync failed:", error);
             setSyncResult(`[기업마당] 실패: ${error.message}`);
@@ -73,13 +85,20 @@ export default function Admin() {
     };
 
     const handleSyncKStartup = async () => {
+        if (!syncSinceDate) {
+            setSyncResult('[#K-Startup] 실패: 기준일(sinceDate)을 선택해주세요.');
+            return;
+        }
         setKStartupSyncing(true);
         setSyncResult(null);
         try {
             const scrapeKStartup = httpsCallable(functions, 'scrapeKStartup');
-            const result = await scrapeKStartup({ sinceDate: syncSinceDate || null });
+            const result = await scrapeKStartup({ sinceDate: syncSinceDate, rangeDays: syncRangeDays });
             const data = result.data as any;
-            setSyncResult(`[#K-Startup] 성공: ${data.message}`);
+            const detail = data && typeof data.newCount === 'number'
+                ? ` (신규 ${data.newCount} / 업데이트 ${data.updatedCount ?? 0} / 스킵 ${data.skippedCount ?? 0})`
+                : '';
+            setSyncResult(`[#K-Startup] 성공: ${data.message || ''}${detail}`);
         } catch (error: any) {
             console.error("K-Startup sync failed:", error);
             setSyncResult(`[#K-Startup] 실패: ${error.message}`);
@@ -120,6 +139,8 @@ export default function Admin() {
                 setSchedulerConfig({
                     enabled: !!data.config.enabled,
                     intervalMinutes: Number(data.config.intervalMinutes) || 60,
+                    mode: data.config.mode === 'daily' ? 'daily' : 'interval',
+                    dailyTimes: Array.isArray(data.config.dailyTimes) ? data.config.dailyTimes : [],
                     lastRunAt: data.config.lastRunAt || null,
                     lastRunResult: data.config.lastRunResult || null,
                     lastRunError: data.config.lastRunError || null,
@@ -144,12 +165,16 @@ export default function Admin() {
             const result = await updateConfig({
                 enabled: schedulerConfig.enabled,
                 intervalMinutes: schedulerConfig.intervalMinutes,
+                mode: schedulerConfig.mode || 'interval',
+                dailyTimes: Array.isArray(schedulerConfig.dailyTimes) ? schedulerConfig.dailyTimes : [],
             } as any);
             const data = result.data as any;
             if (data && data.success && data.config) {
                 setSchedulerConfig({
                     enabled: !!data.config.enabled,
                     intervalMinutes: Number(data.config.intervalMinutes) || schedulerConfig.intervalMinutes,
+                    mode: data.config.mode === 'daily' ? 'daily' : 'interval',
+                    dailyTimes: Array.isArray(data.config.dailyTimes) ? data.config.dailyTimes : schedulerConfig.dailyTimes,
                     lastRunAt: data.config.lastRunAt || schedulerConfig.lastRunAt || null,
                     lastRunResult: data.config.lastRunResult || schedulerConfig.lastRunResult || null,
                     lastRunError: data.config.lastRunError || schedulerConfig.lastRunError || null,
@@ -204,6 +229,7 @@ export default function Admin() {
                     type: data.type || '',
                     status: data.status || '',
                     message: data.message || '',
+                    meta: data.meta || null,
                     triggeredAt: data.triggeredAt,
                     triggerEmail: data.triggerEmail || '',
                 };
@@ -426,6 +452,22 @@ export default function Admin() {
                                         className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white"
                                     />
                                 </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-600 font-medium">기간</span>
+                                    <select
+                                        value={syncRangeDays}
+                                        onChange={(e) => setSyncRangeDays(Number(e.target.value) || 7)}
+                                        className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white"
+                                    >
+                                        <option value={1}>1일</option>
+                                        <option value={2}>2일</option>
+                                        <option value={3}>3일</option>
+                                        <option value={4}>4일</option>
+                                        <option value={5}>5일</option>
+                                        <option value={6}>6일</option>
+                                        <option value={7}>7일</option>
+                                    </select>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => setSyncSinceDate('')}
@@ -433,12 +475,12 @@ export default function Admin() {
                                 >
                                     초기화
                                 </button>
-                                <span className="text-slate-500">비워두면 목록 페이지에서 보이는 공고를 모두 가져옵니다.</span>
+                                <span className="text-slate-500">기준일을 선택하면 해당 날짜부터 기간만큼만 저장합니다(최대 7일).</span>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button
                                     onClick={handleSyncBizinfo}
-                                    disabled={bizinfoSyncing}
+                                    disabled={bizinfoSyncing || !syncSinceDate}
                                     className="px-3 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
                                 >
                                     {bizinfoSyncing ? (
@@ -455,7 +497,7 @@ export default function Admin() {
                                 </button>
                                 <button
                                     onClick={handleSyncKStartup}
-                                    disabled={kStartupSyncing}
+                                    disabled={kStartupSyncing || !syncSinceDate}
                                     className="px-3 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
                                 >
                                     {kStartupSyncing ? (
@@ -553,28 +595,116 @@ export default function Admin() {
                                 </button>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                                 <div className="flex-1">
-                                    <p className="text-xs text-slate-700 mb-1">실행 간격(분)</p>
-                                    <input
-                                        type="number"
-                                        min={15}
-                                        max={1440}
-                                        value={schedulerConfig.intervalMinutes}
-                                        onChange={(e) =>
-                                            setSchedulerConfig((prev) =>
-                                                prev
-                                                    ? { ...prev, intervalMinutes: Number(e.target.value) || 0 }
-                                                    : prev,
-                                            )
-                                        }
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                                    />
+                                    <p className="text-xs text-slate-700 mb-1">실행 방식</p>
+                                    <select
+                                        value={schedulerConfig.mode || 'interval'}
+                                        onChange={(e) => {
+                                            const nextMode = e.target.value === 'daily' ? 'daily' : 'interval';
+                                            setSchedulerConfig((prev) => {
+                                                if (!prev) return prev;
+                                                if (nextMode === 'daily') {
+                                                    const times = Array.isArray(prev.dailyTimes) && prev.dailyTimes.length > 0 ? prev.dailyTimes : ['09:00'];
+                                                    return { ...prev, mode: 'daily', dailyTimes: times };
+                                                }
+                                                return { ...prev, mode: 'interval' };
+                                            });
+                                        }}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm bg-white"
+                                    >
+                                        <option value="daily">정규시간(매일)</option>
+                                        <option value="interval">간격(분)</option>
+                                    </select>
                                 </div>
                                 <div className="text-[10px] sm:text-xs text-slate-400">
-                                    <p>최소 15분, 최대 1440분(24시간)</p>
+                                    <p>정규시간은 15분 단위로 실행됩니다.</p>
                                 </div>
                             </div>
+
+                            {((schedulerConfig.mode || 'interval') === 'interval') && (
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                    <div className="flex-1">
+                                        <p className="text-xs text-slate-700 mb-1">실행 간격(분)</p>
+                                        <input
+                                            type="number"
+                                            min={15}
+                                            max={1440}
+                                            value={schedulerConfig.intervalMinutes}
+                                            onChange={(e) =>
+                                                setSchedulerConfig((prev) =>
+                                                    prev
+                                                        ? { ...prev, intervalMinutes: Number(e.target.value) || 0 }
+                                                        : prev,
+                                                )
+                                            }
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                                        />
+                                    </div>
+                                    <div className="text-[10px] sm:text-xs text-slate-400">
+                                        <p>최소 15분, 최대 1440분(24시간)</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {((schedulerConfig.mode || 'interval') === 'daily') && (
+                                <div className="space-y-2">
+                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                                        <div className="flex-1">
+                                            <p className="text-xs text-slate-700 mb-1">정규시간(HH:mm)</p>
+                                            <input
+                                                type="time"
+                                                step={900}
+                                                value={newDailyTime}
+                                                onChange={(e) => setNewDailyTime(e.target.value)}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm bg-white"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSchedulerConfig((prev) => {
+                                                    if (!prev) return prev;
+                                                    const existing = Array.isArray(prev.dailyTimes) ? prev.dailyTimes : [];
+                                                    const cleaned = [
+                                                        ...existing,
+                                                        newDailyTime,
+                                                    ]
+                                                        .map((t) => String(t || '').trim())
+                                                        .filter((t) => /^\d{2}:\d{2}$/.test(t));
+                                                    const unique = Array.from(new Set(cleaned)).sort().slice(0, 4);
+                                                    return { ...prev, dailyTimes: unique };
+                                                });
+                                            }}
+                                            className="px-4 py-2 bg-slate-900 text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors"
+                                        >
+                                            추가
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {(Array.isArray(schedulerConfig.dailyTimes) ? schedulerConfig.dailyTimes : []).map((t) => (
+                                            <button
+                                                key={t}
+                                                type="button"
+                                                onClick={() =>
+                                                    setSchedulerConfig((prev) => {
+                                                        if (!prev) return prev;
+                                                        const next = (Array.isArray(prev.dailyTimes) ? prev.dailyTimes : []).filter((x) => x !== t);
+                                                        return { ...prev, dailyTimes: next };
+                                                    })
+                                                }
+                                                className="px-3 py-1 rounded-full border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50"
+                                            >
+                                                {t} 삭제
+                                            </button>
+                                        ))}
+                                        {(Array.isArray(schedulerConfig.dailyTimes) ? schedulerConfig.dailyTimes : []).length === 0 && (
+                                            <span className="text-xs text-slate-400">정규시간을 1개 이상 추가해주세요.</span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3">
                                 <div>
@@ -837,6 +967,11 @@ export default function Admin() {
                                                     </span>
                                                 </div>
                                                 <p className="text-[10px] text-slate-500 mb-1">{formatLogTime(log.triggeredAt)}</p>
+                                                {log.meta && (typeof log.meta.newCount === 'number' || typeof log.meta.updatedCount === 'number' || typeof log.meta.skippedCount === 'number') && (
+                                                    <p className="text-[10px] text-slate-600 mb-1">
+                                                        신규 {typeof log.meta.newCount === 'number' ? log.meta.newCount : 0} / 업데이트 {typeof log.meta.updatedCount === 'number' ? log.meta.updatedCount : 0} / 스킵 {typeof log.meta.skippedCount === 'number' ? log.meta.skippedCount : 0}
+                                                    </p>
+                                                )}
                                                 {log.message && (
                                                     <p className="text-[11px] text-slate-600 line-clamp-2">{log.message}</p>
                                                 )}
@@ -854,18 +989,19 @@ export default function Admin() {
                                                 <th className="px-3 py-2 text-left">작업</th>
                                                 <th className="px-3 py-2 text-left">상태</th>
                                                 <th className="px-3 py-2 text-left">메시지</th>
+                                                <th className="px-3 py-2 text-left">업서트</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {loadingLogs ? (
                                                 <tr>
-                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
+                                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
                                                         로그를 불러오는 중입니다...
                                                     </td>
                                                 </tr>
                                             ) : paginatedLogs.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
+                                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
                                                         해당 기간의 로그가 없습니다.
                                                     </td>
                                                 </tr>
@@ -896,6 +1032,11 @@ export default function Admin() {
                                                             <p className="text-[11px] text-slate-600 line-clamp-2">
                                                                 {log.message || '—'}
                                                             </p>
+                                                        </td>
+                                                        <td className="px-3 py-2 align-top whitespace-nowrap text-[11px] text-slate-600">
+                                                            {log.meta && (typeof log.meta.newCount === 'number' || typeof log.meta.updatedCount === 'number' || typeof log.meta.skippedCount === 'number')
+                                                                ? `${typeof log.meta.newCount === 'number' ? log.meta.newCount : 0}/${typeof log.meta.updatedCount === 'number' ? log.meta.updatedCount : 0}/${typeof log.meta.skippedCount === 'number' ? log.meta.skippedCount : 0}`
+                                                                : '—'}
                                                         </td>
                                                     </tr>
                                                 ))
