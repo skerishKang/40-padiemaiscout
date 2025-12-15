@@ -220,7 +220,7 @@ export default function Dashboard() {
                     return;
                 }
 
-                const top3 = matched.slice(0, 3).map(item => {
+                const recommended = matched.map(item => {
                     const { grant, reason, score } = item;
                     // reason을 간단한 bullet 형태로 분리
                     const reasons = reason
@@ -235,7 +235,7 @@ export default function Dashboard() {
                     };
                 });
 
-                setRecommendedGrants(top3);
+                setRecommendedGrants(recommended);
             } catch (e) {
                 console.error('runRealRecommendation failed', e);
                 setRecoEmpty({
