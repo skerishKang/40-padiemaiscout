@@ -1,9 +1,13 @@
 import { loadTossPayments } from '@tosspayments/payment-sdk';
 
-const clientKey = 'REDACTED_TOSS_CLIENT_KEY'; // Test Client Key
+const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
 
 export const requestPayment = async (userEmail: string, userName: string) => {
     try {
+        if (!clientKey) {
+            throw new Error('VITE_TOSS_CLIENT_KEY가 설정되지 않았습니다.');
+        }
+
         const tossPayments = await loadTossPayments(clientKey);
 
         await tossPayments.requestPayment('카드', {

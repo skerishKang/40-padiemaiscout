@@ -396,7 +396,8 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
 });
 
 // --- Toss Payments Confirmation ---
-const TOSS_SECRET_KEY = "REDACTED_TOSS_SECRET_KEY";
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ||
+  (functions.config().toss && functions.config().toss.secret_key);
 const axios = require("axios");
 
 exports.confirmPayment = functions.https.onCall(async (request, context) => {
@@ -411,8 +412,15 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
   const { paymentKey, orderId, amount } = data;
   const userId = context.auth.uid;
 
+  const widgetSecretKey = TOSS_SECRET_KEY;
+  if (!widgetSecretKey) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "TOSS_SECRET_KEY가 설정되지 않았습니다.",
+    );
+  }
+
   try {
-    const widgetSecretKey = TOSS_SECRET_KEY;
     const encryptedSecretKey = Buffer.from(
       widgetSecretKey + ":",
     ).toString("base64");
