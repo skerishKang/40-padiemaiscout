@@ -532,12 +532,40 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
 
 // --- Bizinfo Scraping Agent ---
 const cheerio = require("cheerio");
+const crypto = require("crypto");
 
 const bizinfoSchedulerDocRef = db.collection("system_settings").doc("bizinfoScheduler");
 const DEFAULT_BIZINFO_SCHEDULER_CONFIG = {
-  enabled: true,
+  enabled: false,
   intervalMinutes: 60,
 };
+
+function normalizeIsoDateString(value) {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/(\d{4})[\-.](\d{2})[\-.](\d{2})/);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+function parseIsoDateToUtcStart(isoDate) {
+  const normalized = normalizeIsoDateString(isoDate);
+  if (!normalized) return null;
+  const parts = normalized.split("-");
+  if (parts.length !== 3) return null;
+  const d = new Date(Date.UTC(
+    parseInt(parts[0], 10),
+    parseInt(parts[1], 10) - 1,
+    parseInt(parts[2], 10),
+  ));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function buildGrantDocId(source, link) {
+  const base = `${String(source || "")}::${String(link || "")}`;
+  const hash = crypto.createHash("sha256").update(base).digest("hex");
+  return `${source}_${hash.slice(0, 24)}`;
+}
 
 async function getBizinfoSchedulerConfigInternal() {
   const snap = await bizinfoSchedulerDocRef.get();
@@ -574,9 +602,12 @@ async function applyBizinfoSchedulerConfigUpdate(updates) {
 }
 
 // --- Bizinfo Scraping Logic (Shared) ---
-async function performBizinfoScraping() {
+async function performBizinfoScraping(options) {
   // 실제 지원사업 공고 목록 페이지 (검색/필터 포함 메인 리스트)
   const targetUrl = "https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do";
+
+  const sinceDate = options && typeof options.sinceDate === "string" ? options.sinceDate : null;
+  const sinceUtc = sinceDate ? parseIsoDateToUtcStart(sinceDate) : null;
 
   try {
     const response = await axios.get(targetUrl);
@@ -598,6 +629,14 @@ async function performBizinfoScraping() {
       const periodText = $(tds[3]).text().replace(/\s+/g, " ").trim();
       const department = $(tds[4]).text().trim();
       const date = $(tds[6]).text().trim(); // 등록일
+
+      if (sinceUtc) {
+        const normalizedDate = normalizeIsoDateString(date);
+        const rowDate = normalizedDate ? parseIsoDateToUtcStart(normalizedDate) : null;
+        if (rowDate && rowDate.getTime() < sinceUtc.getTime()) {
+          return;
+        }
+      }
 
       const title = rawTitle.replace(/\s+/g, " ");
       if (!title) {
@@ -657,14 +696,24 @@ async function performBizinfoScraping() {
       return { success: false, message: "스크래핑된 공고가 없습니다.", count: 0 };
     }
 
+    const docRefs = scrapedItems.map((item) => {
+      return db.collection("grants").doc(buildGrantDocId("bizinfo", item.link));
+    });
+    const snaps = docRefs.length > 0 ? await db.getAll(...docRefs) : [];
+
     const batch = db.batch();
-    scrapedItems.forEach((item) => {
-      const docRef = db.collection("grants").doc();
-      batch.set(docRef, {
+    snaps.forEach((snap, idx) => {
+      const item = scrapedItems[idx];
+      const docRef = docRefs[idx];
+      const payload = {
         ...item,
         source: "bizinfo",
-        createdAt: FieldValue.serverTimestamp(),
-      });
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (!snap.exists) {
+        payload.createdAt = FieldValue.serverTimestamp();
+      }
+      batch.set(docRef, payload, { merge: true });
     });
     await batch.commit();
 
@@ -681,8 +730,11 @@ async function performBizinfoScraping() {
 }
 
 // --- K-Startup Scraping Logic (Ongoing Biz Notices) ---
-async function performKStartupScraping() {
+async function performKStartupScraping(options) {
   const targetUrl = "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do";
+
+  const sinceDate = options && typeof options.sinceDate === "string" ? options.sinceDate : null;
+  const sinceUtc = sinceDate ? parseIsoDateToUtcStart(sinceDate) : null;
 
   try {
     const response = await axios.get(targetUrl);
@@ -712,7 +764,8 @@ async function performKStartupScraping() {
         if (href.startsWith("javascript:")) {
           // K-Startup에서 javascript:go_view(...) 형태의 링크는 자바스크립트로 상세 페이지를 여는데,
           // 정적 스크래핑 환경에서는 직접 실행할 수 없으므로 목록 페이지로 연결한다.
-          link = "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do";
+          const jsKey = crypto.createHash("sha256").update(text).digest("hex").slice(0, 12);
+          link = `${targetUrl}#${jsKey}`;
         } else if (href.startsWith("http")) {
           link = href;
         } else if (href.startsWith("/")) {
@@ -720,6 +773,9 @@ async function performKStartupScraping() {
         } else {
           link = "https://www.k-startup.go.kr" + (href.startsWith("?") ? href : "/" + href);
         }
+      }
+      if (!link) {
+        return;
       }
 
       // 마감일자 추출
@@ -756,11 +812,24 @@ async function performKStartupScraping() {
         }
       }
 
+      const postedDateMatch = text.match(/등록일자\s+(\d{4}-\d{2}-\d{2})/);
+      const postedDate = postedDateMatch ? postedDateMatch[1] : null;
+      if (sinceUtc) {
+        if (!postedDate) {
+          return;
+        }
+        const rowDate = parseIsoDateToUtcStart(postedDate);
+        if (rowDate && rowDate.getTime() < sinceUtc.getTime()) {
+          return;
+        }
+      }
+
       const item = {
         title,
         link,
         department: department || null,
         period: periodText,
+        date: postedDate,
         scrapedAt: new Date().toISOString(),
       };
       if (deadlineTimestamp) {
@@ -779,14 +848,24 @@ async function performKStartupScraping() {
       };
     }
 
+    const docRefs = scrapedItems.map((item) => {
+      return db.collection("grants").doc(buildGrantDocId("k-startup", item.link));
+    });
+    const snaps = docRefs.length > 0 ? await db.getAll(...docRefs) : [];
+
     const batch = db.batch();
-    scrapedItems.forEach((item) => {
-      const docRef = db.collection("grants").doc();
-      batch.set(docRef, {
+    snaps.forEach((snap, idx) => {
+      const item = scrapedItems[idx];
+      const docRef = docRefs[idx];
+      const payload = {
         ...item,
         source: "k-startup",
-        createdAt: FieldValue.serverTimestamp(),
-      });
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (!snap.exists) {
+        payload.createdAt = FieldValue.serverTimestamp();
+      }
+      batch.set(docRef, payload, { merge: true });
     });
     await batch.commit();
 
@@ -1120,13 +1199,20 @@ exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, conte
 
 exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
   try {
-    const result = await performBizinfoScraping();
+    const payload = request && typeof request === "object" && "data" in request ?
+      request.data :
+      request;
+    const sinceDate = payload && typeof payload.sinceDate === "string" ? payload.sinceDate : null;
+    const result = await performBizinfoScraping({ sinceDate });
     try {
       await logAdminSync(
         "scrape_bizinfo",
         "success",
         result && result.message ? result.message : "Bizinfo 스크래핑 성공",
-        { count: result && typeof result.count === "number" ? result.count : null },
+        {
+          count: result && typeof result.count === "number" ? result.count : null,
+          sinceDate: sinceDate || null,
+        },
         context,
       );
     } catch (e) {
@@ -1155,13 +1241,20 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
 
 exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
   try {
-    const result = await performKStartupScraping();
+    const payload = request && typeof request === "object" && "data" in request ?
+      request.data :
+      request;
+    const sinceDate = payload && typeof payload.sinceDate === "string" ? payload.sinceDate : null;
+    const result = await performKStartupScraping({ sinceDate });
     try {
       await logAdminSync(
         "scrape_k_startup",
         "success",
         result && result.message ? result.message : "K-Startup 스크래핑 성공",
-        { count: result && typeof result.count === "number" ? result.count : null },
+        {
+          count: result && typeof result.count === "number" ? result.count : null,
+          sinceDate: sinceDate || null,
+        },
         context,
       );
     } catch (e) {

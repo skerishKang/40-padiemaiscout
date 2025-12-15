@@ -36,6 +36,7 @@ export default function Admin() {
     const [stats, setStats] = useState({ totalUsers: 0, proUsers: 0 });
     const [grantStats, setGrantStats] = useState({ totalGrants: 0, bizinfoGrants: 0, userUploadGrants: 0 });
     const [analysisStats, setAnalysisStats] = useState({ scrapedGrants: 0, analyzedScrapedGrants: 0, pendingScrapedGrants: 0 });
+    const [syncSinceDate, setSyncSinceDate] = useState('');
     const [bizinfoSyncing, setBizinfoSyncing] = useState(false);
     const [kStartupSyncing, setKStartupSyncing] = useState(false);
     const [analyzeSyncing, setAnalyzeSyncing] = useState(false);
@@ -60,7 +61,7 @@ export default function Admin() {
         setSyncResult(null);
         try {
             const scrapeBizinfo = httpsCallable(functions, 'scrapeBizinfo');
-            const result = await scrapeBizinfo();
+            const result = await scrapeBizinfo({ sinceDate: syncSinceDate || null });
             const data = result.data as any;
             setSyncResult(`[기업마당] 성공: ${data.message}`);
         } catch (error: any) {
@@ -76,7 +77,7 @@ export default function Admin() {
         setSyncResult(null);
         try {
             const scrapeKStartup = httpsCallable(functions, 'scrapeKStartup');
-            const result = await scrapeKStartup();
+            const result = await scrapeKStartup({ sinceDate: syncSinceDate || null });
             const data = result.data as any;
             setSyncResult(`[#K-Startup] 성공: ${data.message}`);
         } catch (error: any) {
@@ -415,6 +416,25 @@ export default function Admin() {
                             </div>
                         </div>
                         <div className="flex flex-col gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-600 font-medium">기준일</span>
+                                    <input
+                                        type="date"
+                                        value={syncSinceDate}
+                                        onChange={(e) => setSyncSinceDate(e.target.value)}
+                                        className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSyncSinceDate('')}
+                                    className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                                >
+                                    초기화
+                                </button>
+                                <span className="text-slate-500">비워두면 목록 페이지에서 보이는 공고를 모두 가져옵니다.</span>
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button
                                     onClick={handleSyncBizinfo}
