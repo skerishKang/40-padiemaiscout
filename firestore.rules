@@ -41,15 +41,15 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
     }
 
-    // 수집(크롤링) 공고 - 공개 읽기, 쓰기는 현재 인증 사용자 허용
+    // 수집(크롤링) 공고 - 공개 읽기, 쓰기는 관리자만 허용
     match /scraped_grants/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /grants/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /admin_sync_logs/{logId} {
