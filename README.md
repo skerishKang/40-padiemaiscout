@@ -30,6 +30,22 @@ GrantScout(파디 스카우터)는 정부/공공기관 지원사업 공고를 �
 - firebase.json / netlify.toml
 - deploy.ps1 / global_deploy.ps1
 
+## CI / 배포
+
+- CI: GitHub Actions (`.github/workflows/ci.yml`)
+  - Web: 린트/빌드
+  - Functions: 린트
+  - 보안 점검: Trivy 파일시스템 스캔(SARIF 업로드)
+- Web 배포: Netlify (`netlify.toml`, base=`grantscout_web`, publish=`dist`)
+- Backend 배포: Firebase(Functions/Rules 등), `deploy.ps1` / `global_deploy.ps1` 기반
+
+## 스크린샷
+
+- `Glass Chat Interface.png`
+- `Transparent Neumorphic Chat.png`
+- `Transparent Neumorphic Settings.png`
+- `모바일.PNG`
+
 ## 개발 / 빌드
 
 ### 프론트엔드
@@ -45,6 +61,12 @@ npm --prefix grantscout_web run build
 ```bash
 npm --prefix functions ci
 ```
+
+## 테스트
+
+- 현재 루트 `test/` 폴더에 Flutter 기반 테스트 파일이 남아있습니다(레거시).
+- 웹(React) 및 Functions에 대한 자동 테스트는 도입 전 단계입니다.
+- 상용화 단계에서는 Web 단위 테스트(예: Vitest/Jest), E2E(Playwright), Functions 호출 테스트를 CI에 포함하는 구성을 권장합니다.
 
 ## 환경 변수
 
@@ -62,8 +84,9 @@ npm --prefix functions ci
 
 - 공고 수집/구조화 파이프라인: 기업마당·K-Startup 수집, 관리자 배치/스케줄러 지원, 중복 방지(소스+링크 기반 문서 ID)
 - AI 스카우터/문서 분석: 채팅에서 PDF/이미지/Word 등 문서 업로드 기반 분석
+- 모델 선택 지원: 프론트에서 모델 선택, 백엔드에서 허용 모델 목록(`GEMINI_ALLOWED_MODELS`) 및 폴백 처리
 - 기업 프로필 기반 AI Pick: Pro 이상에서 `checkSuitability`로 적합도 점수/사유 생성(기본 임계치 60점)
-- 결제/등급: Toss Payments 결제 승인 확인 후 Pro로 자동 승급(프리미엄 등급은 확장 포인트)
+- 결제/등급: Toss Payments 결제 승인 확인 후 Pro로 자동 승급(추가 등급은 관리자에서 확장 가능)
 
 ## 개선 / 상용화 제언(요약)
 
@@ -91,11 +114,15 @@ npm --prefix functions ci
 - AI 호출량 제어: 후보군 제한, 배치 분석(`analyzeScrapedGrantsBatch`) 기반으로 비용/지연 관리
 - 캐싱/인덱스: Firestore 쿼리 패턴 기준 인덱스 최적화 및 캐시 전략 수립
 - 비동기 파이프라인: 수집→분석→추천을 이벤트/큐 기반으로 분리(트래픽 증가 대비)
+- 캐시 도입 시점: 현재는 Firebase 중심으로 운영 → 트래픽/쿼리 병목이 확인되면 Redis 등 외부 캐시를 단계적으로 도입
+- 관측성: 스크래핑 성공률/분석 성공률, AI 호출 지연/실패율 등의 지표를 운영 대시보드로 가시화
 
 ### (5) UX/UI 및 제품화
 
 - 추천/탐색/내 분석 흐름 정리(홈=스카우터, 공고 목록, 내 분석 내역)
 - 모바일 최적화 및 온보딩(프로필 작성 유도, 추천 생성 조건 안내)
+- 접근성: 키보드 네비게이션, 색 대비/다크모드, 스크린리더 대응 등 단계적 적용
+- 업로드/분석 피드백: 파일 업로드 진행/분석 상태/실패 원인 UI 강화
 - 신청 진행 관리(관심→지원 준비→제출) 상태 추적은 유료 기능으로 확장 가능
 
 ## 실행 가능한 단기 로드맵(예시)
