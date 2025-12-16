@@ -76,7 +76,9 @@ export default function Profile() {
         if (!user) return;
         setLoading(true);
         try {
-            await setDoc(doc(db, 'users', user.uid), formData, { merge: true });
+            const payload = { ...formData } as any;
+            delete payload.role;
+            await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
             setMessage('저장되었습니다.');
         } catch (error) {
             console.error("Save error:", error);

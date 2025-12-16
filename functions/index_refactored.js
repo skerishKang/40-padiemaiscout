@@ -97,7 +97,9 @@ exports.extractPdfText = onObjectFinalized({cpu: 1}, async (event) => {
 });
 
 // API key status check function
-exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
+exports.checkApiKeyStatus = functions.https.onCall(async (_data, _context) => {
+  void _data;
+  void _context;
   // For production, uncomment authentication check
   // if (!context.auth) {
   //   throw new functions.https.HttpsError('unauthenticated', '인증 필요');
@@ -107,7 +109,7 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
 });
 
 // Suitability analysis function
-exports.checkSuitability = functions.https.onCall(async (data, context) => {
+exports.checkSuitability = functions.https.onCall(async (data, _context) => {
   const userProfile = data.userProfile;
   const analysisResult = data.analysisResult;
   

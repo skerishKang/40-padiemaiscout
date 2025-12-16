@@ -81,21 +81,6 @@ async function requireAdmin(context) {
   }
 }
 
-function isProOrAboveRole(role) {
-  return role === "pro" || role === "premium" || role === "admin";
-}
-
-async function requireProOrAbove(context) {
-  const uid = requireAuth(context);
-  const role = await getUserRoleByUid(uid);
-  if (!isProOrAboveRole(role)) {
-    throw new functions.https.HttpsError(
-      "permission-denied",
-      "Pro 이상 이용 가능한 기능입니다.",
-    );
-  }
-}
-
 function formatKstDateKey(date) {
   const kstMs = date.getTime() + (9 * 60 * 60 * 1000);
   const kstDate = new Date(kstMs);
@@ -688,7 +673,7 @@ const DEFAULT_BIZINFO_SCHEDULER_CONFIG = {
 function normalizeIsoDateString(value) {
   if (!value || typeof value !== "string") return null;
   const trimmed = value.trim();
-  const match = trimmed.match(/(\d{4})[\-.](\d{2})[\-.](\d{2})/);
+  const match = trimmed.match(/(\d{4})[-.](\d{2})[-.](\d{2})/);
   if (!match) return null;
   return `${match[1]}-${match[2]}-${match[3]}`;
 }
@@ -1663,7 +1648,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 exports.scheduledScrapeBizinfo = onSchedule({
   schedule: "every 15 minutes",
   timeZone: "Asia/Seoul",
-}, async (event) => {
+}, async () => {
   console.log("Running scheduled Bizinfo scraping (interval mode)...");
   try {
     const now = new Date();

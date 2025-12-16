@@ -39,11 +39,6 @@ const normalizeRole = (role: unknown) => {
     return typeof role === 'string' ? role.toLowerCase() : '';
 };
 
-const isProOrAboveRole = (role: unknown) => {
-    const normalized = normalizeRole(role);
-    return normalized === 'pro' || normalized === 'premium' || normalized === 'admin';
-};
-
 export default function Dashboard() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -157,8 +152,6 @@ export default function Dashboard() {
             setRecoLoading(false);
             setRecoEmpty(null);
             if (!user || !userProfile) return;
-            const role = userProfile?.role;
-            if (!role) return;
             if (allGrants.length === 0) return;
 
             setRecommendedGrants([]);
@@ -186,9 +179,8 @@ export default function Dashboard() {
             try {
                 const checkSuitabilityFn = httpsCallable(functions, 'checkSuitability');
                 // 분석 결과가 있는 공고 중 일부만 대상으로 적합도 계산 (과도한 호출 방지)
-                const normalizedRole = normalizeRole(role);
-                const candidateLimit = (normalizedRole === 'premium' || normalizedRole === 'admin') ? 30 : 15;
-                const maxRecoCount = (normalizedRole === 'premium' || normalizedRole === 'admin') ? 10 : 3;
+                const candidateLimit = 10;
+                const maxRecoCount = 3;
                 const candidates = allGrants
                     .filter(g => g.analysisResult)
                     .slice(0, candidateLimit);
@@ -229,7 +221,7 @@ export default function Dashboard() {
                         if (message.includes('resource-exhausted') || message.includes('일일 사용 횟수')) {
                             setRecoEmpty({
                                 title: '오늘 AI 추천 사용 횟수를 모두 사용했습니다.',
-                                description: '내일 다시 시도해 주세요. 회원가입/로그인을 하면 추후 더 많은 사용량을 제공할 예정입니다.',
+                                description: '내일 다시 시도해 주세요.',
                                 ctaHref: '/login',
                                 ctaLabel: '로그인/회원가입',
                             });
@@ -433,9 +425,7 @@ export default function Dashboard() {
     // Check if profile is complete (Basic check)
     const isProfileComplete = userProfile?.industry && userProfile?.location;
     const userRole = normalizeRole(userProfile?.role);
-    const isProOrPremium = isProOrAboveRole(userRole);
-    const isPremiumOrAdmin = userRole === 'premium' || userRole === 'admin';
-    const visibleRecoGrants = isPremiumOrAdmin && !recoExpanded
+    const visibleRecoGrants = !recoExpanded
         ? recommendedGrants.slice(0, 3)
         : recommendedGrants;
 
@@ -451,13 +441,7 @@ export default function Dashboard() {
         if (!user) {
             return '로그인하고 기업 프로필을 설정하면 우리 회사에 맞는 지원사업을 추천해드립니다.';
         }
-        if (!isProOrPremium) {
-            return '현재 일반 회원입니다. Pro / 프리미엄으로 업그레이드하면 Gemini 기반 AI 맞춤 추천을 받을 수 있습니다.';
-        }
-        if (userRole === 'premium' || userRole === 'admin') {
-            return '프리미엄은 더 많은 공고를 평가하여 AI 맞춤 추천 정확도를 높입니다.';
-        }
-        return '기업 프로필과 Gemini 상세 분석을 기반으로 한 AI 맞춤 추천 결과입니다.';
+        return '기업 프로필과 Gemini 상세 분석을 기반으로 한 AI 맞춤 추천 결과입니다. (일일 10회 제한)';
     })();
 
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -519,9 +503,9 @@ export default function Dashboard() {
                                 ? 'Free 플랜'
                                 : `${roleLabel} 플랜`}
                     </span>
-                    {isProOrPremium && (
+                    {user && isProfileComplete && (
                         <span className="text-[11px] text-emerald-600 font-medium">
-                            AI 맞춤 추천 활성화
+                            AI 맞춤 추천 (일일 10회)
                         </span>
                     )}
                 </div>
@@ -581,22 +565,6 @@ export default function Dashboard() {
                                 onToggleFavorite={() => toggleFavorite(grant)}
                             />
                         ))
-                    ) : !user || !isProOrPremium ? (
-                        <div className="w-full h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
-                            <p className="font-medium mb-1">
-                                AI 맞춤 추천은 Pro / 프리미엄 전용 기능입니다.
-                            </p>
-                            <p className="text-sm text-slate-400 mb-3">
-                                기업 프로필을 설정하고 Pro로 업그레이드하면 우리 회사에 딱 맞는 지원사업을
-                                추천해드립니다.
-                            </p>
-                            <a
-                                href="/pricing"
-                                className="inline-flex items-center justify-center px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors"
-                            >
-                                Pro 혜택 확인하기
-                            </a>
-                        </div>
                     ) : (
                         <div className="w-full h-[200px] flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 p-6 text-center">
                             <p className="font-medium mb-1">{recoEmpty?.title || '아직 추천할 공고가 없습니다.'}</p>
@@ -614,7 +582,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {recommendedGrants.length > 3 && isPremiumOrAdmin && (
+                    {recommendedGrants.length > 3 && (
                         <button
                             type="button"
                             onClick={() => setRecoExpanded((prev) => !prev)}

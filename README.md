@@ -11,10 +11,10 @@ GrantScout(파디 스카우터)는 정부/공공기관 지원사업 공고를 �
 
 - 공고 목록/검색/필터/정렬
 - 즐겨찾기(관심 공고 저장)
-- AI 스카우터(채팅) + 문서 업로드(PDF/이미지/Word 등) 분석
-- 기업 프로필 기반 AI 맞춤 추천 (Pro 이상)
+- AI 스카우터(채팅) + 문서 업로드(PDF/이미지/Word 등) 분석 (로그인 필요, 익명 로그인 포함 / 1일 10회 제한)
+- 기업 프로필 기반 AI 맞춤 추천 (로그인 사용자, 익명 로그인 포함 / 1일 10회 제한)
 - 관리자 대시보드: 기업마당/K-Startup 수집 + 상세 분석 배치 + 스케줄러 설정
-- Toss Payments 기반 Pro 업그레이드
+- Toss Payments 기반 Pro 업그레이드(향후 혜택/한도 차등 적용용)
 
 ## 기술 스택
 
@@ -29,8 +29,8 @@ GrantScout(파디 스카우터)는 정부/공공기관 지원사업 공고를 �
 - 데이터 수집: 기업마당/ K-Startup 스크래핑(기준일 + 최대 7일 범위), 중복 방지(소스+링크 기반 문서 ID)
 - 자동 수집 스케줄러(기업마당): 기본 비활성(enabled=false), 관리자에서 정규시간/간격 방식 설정
 - 데이터 상세 분석: 스크래핑 공고에 대해 Gemini 기반 구조화 분석 배치(`analyzeScrapedGrantsBatch`)
-- AI 스카우터: 문서 첨부 + 프롬프트 기반 `chatWithGemini` 호출(허용 모델 목록/폴백 처리)
-- AI Pick: Pro 이상에서 `checkSuitability`로 적합도 점수/사유 생성(기본 임계치 60점)
+- AI 스카우터: 문서 첨부 + 프롬프트 기반 `chatWithGemini` 호출(허용 모델 목록/폴백 처리, 일일 10회 제한)
+- AI Pick: 로그인 사용자(익명 로그인 포함)에게 `checkSuitability`로 적합도 점수/사유 생성(기본 임계치 60점, 일일 10회 제한)
 - 결제/등급: Toss 결제 승인 확인(`confirmPayment`) 후 Pro 승급
 - 관리자: 수집/상세분석/스케줄러 설정/유저 등급 변경/동기화 로그 조회
 
@@ -75,6 +75,7 @@ GrantScout(파디 스카우터)는 정부/공공기관 지원사업 공고를 �
 
 ```bash
 npm --prefix grantscout_web ci
+npm --prefix grantscout_web run lint
 npm --prefix grantscout_web run dev
 npm --prefix grantscout_web run build
 ```
@@ -83,6 +84,8 @@ npm --prefix grantscout_web run build
 
 ```bash
 npm --prefix functions ci
+npm --prefix functions run lint
+node --check functions/index.js
 ```
 
 ## 테스트
@@ -108,7 +111,7 @@ npm --prefix functions ci
 - 공고 수집/구조화 파이프라인: 기업마당·K-Startup 수집, 관리자 배치/스케줄러 지원, 중복 방지(소스+링크 기반 문서 ID)
 - AI 스카우터/문서 분석: 채팅에서 PDF/이미지/Word 등 문서 업로드 기반 분석
 - 모델 선택 지원: 프론트에서 모델 선택, 백엔드에서 허용 모델 목록(`GEMINI_ALLOWED_MODELS`) 및 폴백 처리
-- 기업 프로필 기반 AI Pick: Pro 이상에서 `checkSuitability`로 적합도 점수/사유 생성(기본 임계치 60점)
+- 기업 프로필 기반 AI Pick: 로그인 사용자(익명 로그인 포함)에게 `checkSuitability`로 적합도 점수/사유 생성(기본 임계치 60점, 일일 10회 제한)
 - 결제/등급: Toss Payments 결제 승인 확인 후 Pro로 자동 승급(추가 등급은 관리자에서 확장 가능)
 
 ## 개선 / 상용화 제언(요약)
