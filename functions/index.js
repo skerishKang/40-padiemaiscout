@@ -561,10 +561,17 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
     );
 
     if (response.status === 200) {
-      await db.collection("users").doc(userId).update({
-        role: "pro",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+      const currentRole = await getUserRoleByUid(userId);
+      if (currentRole === "premium" || currentRole === "admin") {
+        await db.collection("users").doc(userId).set({
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } else {
+        await db.collection("users").doc(userId).set({
+          role: "pro",
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
 
       await db.collection("payments").add({
         userId,
@@ -586,10 +593,17 @@ exports.confirmPayment = functions.https.onCall(async (request, context) => {
 
     if (error.response && error.response.data &&
       error.response.data.code === "ALREADY_PROCESSED_PAYMENT") {
-      await db.collection("users").doc(userId).update({
-        role: "pro",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+      const currentRole = await getUserRoleByUid(userId);
+      if (currentRole === "premium" || currentRole === "admin") {
+        await db.collection("users").doc(userId).set({
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } else {
+        await db.collection("users").doc(userId).set({
+          role: "pro",
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
       return {
         success: true,
         message: "이미 처리된 결제입니다. 등급이 갱신되었습니다.",
