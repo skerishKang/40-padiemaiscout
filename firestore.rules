@@ -4,7 +4,7 @@ service cloud.firestore {
     
     // 이메일(하드코딩 목록)로 관리자 여부 확인
     function isAdminByEmail() {
-      return request.auth != null && request.auth.token.email in ['padiemipu@gmail.com', 'limone@example.com', 'admin@mdreader.com'];
+      return request.auth != null && request.auth.token.email in ['padiemipu@gmail.com', 'paidemipu@gmail.com', 'limone@example.com', 'admin@mdreader.com'];
     }
     
     // Firestore 사용자 문서의 role 값으로 관리자 여부 확인

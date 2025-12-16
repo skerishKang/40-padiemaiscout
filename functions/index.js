@@ -29,6 +29,73 @@ const db = getFirestore();
 
 setGlobalOptions({ region: "asia-northeast3" });
 
+const ADMIN_EMAILS = [
+  "padiemipu@gmail.com",
+  "paidemipu@gmail.com",
+  "limone@example.com",
+  "admin@mdreader.com",
+];
+
+function getContextEmail(context) {
+  if (!context || !context.auth || !context.auth.token) return null;
+  const email = context.auth.token.email;
+  return typeof email === "string" ? email : null;
+}
+
+function normalizeRole(value) {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
+async function getUserRoleByUid(uid) {
+  if (!uid) return "free";
+  try {
+    const snap = await db.collection("users").doc(uid).get();
+    const data = snap.exists ? snap.data() : {};
+    const role = normalizeRole(data && data.role);
+    return role || "free";
+  } catch (e) {
+    return "free";
+  }
+}
+
+async function isAdminContext(context) {
+  if (!context || !context.auth) return false;
+  const email = getContextEmail(context);
+  if (email && ADMIN_EMAILS.includes(email)) return true;
+  const role = await getUserRoleByUid(context.auth.uid);
+  return role === "admin";
+}
+
+function requireAuth(context) {
+  if (!context || !context.auth || !context.auth.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다.");
+  }
+  return context.auth.uid;
+}
+
+async function requireAdmin(context) {
+  requireAuth(context);
+  const ok = await isAdminContext(context);
+  if (!ok) {
+    throw new functions.https.HttpsError("permission-denied", "관리자 권한이 필요합니다.");
+  }
+}
+
+function isProOrAboveRole(role) {
+  return role === "pro" || role === "premium" || role === "admin";
+}
+
+async function requireProOrAbove(context) {
+  const uid = requireAuth(context);
+  const role = await getUserRoleByUid(uid);
+  if (!isProOrAboveRole(role)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Pro 이상 이용 가능한 기능입니다.",
+    );
+  }
+}
+
 // --- Admin Sync Log Helper (운영용 장기 로그) ---
 async function logAdminSync(type, status, message, meta, context) {
   try {
@@ -161,6 +228,8 @@ const GEMINI_MODEL_NAME = "gemini-2.5-flash-lite";
 
 // --- 실험용 API 키 유효성 검사 함수 ---
 exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
+  await requireAdmin(context);
+
   const apiKeys = getApiKeysFromEnv();
   if (apiKeys.length === 0) {
     return { status: "error", message: "설정된 Gemini API 키가 없습니다." };
@@ -193,6 +262,8 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
 
 // --- 적합성 분석 Cloud Function ---
 exports.checkSuitability = functions.https.onCall(async (data, context) => {
+  await requireProOrAbove(context);
+
   const userProfile = data.userProfile;
   const analysisResult = data.analysisResult;
   if (!userProfile || !analysisResult) {
@@ -272,6 +343,8 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
 
 // --- Chat with Gemini Cloud Function ---
 exports.chatWithGemini = functions.https.onCall(async (request, context) => {
+  requireAuth(context);
+
   const payload = request && typeof request === "object" && "data" in request ?
     request.data :
     request;
@@ -1175,6 +1248,8 @@ async function analyzeGrantDetailWithGemini(rawText) {
 
 // --- Scraped Grants Batch Analyzer ---
 exports.analyzeScrapedGrantsBatch = functions.https.onCall(async (request, context) => {
+  await requireAdmin(context);
+
   const payload = request && typeof request === "object" && "data" in request ?
     request.data :
     request;
@@ -1327,6 +1402,8 @@ exports.analyzeScrapedGrantsBatch = functions.https.onCall(async (request, conte
 });
 
 exports.getBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
+  await requireAdmin(context);
+
   try {
     const config = await getBizinfoSchedulerConfigInternal();
     let lastRunAt = null;
@@ -1349,6 +1426,8 @@ exports.getBizinfoSchedulerConfig = functions.https.onCall(async (data, context)
 });
 
 exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, context) => {
+  await requireAdmin(context);
+
   const payload = data && typeof data === "object" && "data" in data ? data.data : data;
   const updates = {};
   if (payload && typeof payload === "object") {
@@ -1393,6 +1472,8 @@ exports.updateBizinfoSchedulerConfig = functions.https.onCall(async (data, conte
 });
 
 exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
+  await requireAdmin(context);
+
   try {
     const payload = request && typeof request === "object" && "data" in request ?
       request.data :
@@ -1448,6 +1529,8 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
 });
 
 exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
+  await requireAdmin(context);
+
   try {
     const payload = request && typeof request === "object" && "data" in request ?
       request.data :
