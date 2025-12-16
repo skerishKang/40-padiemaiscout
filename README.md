@@ -22,6 +22,25 @@ GrantScout(파디 스카우터)는 정부/공공기관 지원사업 공고를 �
 - 백엔드: Firebase Cloud Functions(Node.js 20), Firestore/Storage, Google Gemini
 - 결제: Toss Payments
 
+## 현재 구현 현황(요약)
+
+### 구현됨
+
+- 데이터 수집: 기업마당/ K-Startup 스크래핑(기준일 + 최대 7일 범위), 중복 방지(소스+링크 기반 문서 ID)
+- 데이터 상세 분석: 스크래핑 공고에 대해 Gemini 기반 구조화 분석 배치(`analyzeScrapedGrantsBatch`)
+- AI 스카우터: 문서 첨부 + 프롬프트 기반 `chatWithGemini` 호출(허용 모델 목록/폴백 처리)
+- AI Pick: Pro 이상에서 `checkSuitability`로 적합도 점수/사유 생성(기본 임계치 60점)
+- 결제/등급: Toss 결제 승인 확인(`confirmPayment`) 후 Pro 승급
+- 관리자: 수집/상세분석/스케줄러 설정/유저 등급 변경/동기화 로그 조회
+
+### 미구현/확장 포인트
+
+- 데이터 소스 확장: data.go.kr 등 공공 API 기반 수집, 추가 사이트/기관 연동
+- 품질 관리 고도화: 스키마 검증, 누락/오류 자동 탐지, 신뢰도/수정 이력 관리 강화
+- 결제/구독 운영 고도화: 자동 갱신/해지/청구서/구독 상태 관리(현재는 결제 승인 후 Pro 승급까지 구현)
+- 협업/신청 관리: 팀 기능, 신청 상태 추적, 알림 시스템(현재 일부 UI는 준비 중)
+- 관측성/테스트: Sentry/Analytics 도입, Web/Functions 테스트 및 CI 통합
+
 ## 프로젝트 구조
 
 - grantscout_web/
