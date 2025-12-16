@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
@@ -24,4 +24,14 @@ export const functions = getFunctions(app, 'asia-northeast3');
 // Enable persistence for Auth (keeps user logged in across refreshes)
 setPersistence(auth, browserLocalPersistence).catch((error) => {
     console.error("Auth persistence error:", error);
+});
+
+auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("익명 로그인 실패:", error);
+        }
+    }
 });

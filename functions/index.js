@@ -96,6 +96,60 @@ async function requireProOrAbove(context) {
   }
 }
 
+function formatKstDateKey(date) {
+  const kstMs = date.getTime() + (9 * 60 * 60 * 1000);
+  const kstDate = new Date(kstMs);
+  const y = kstDate.getUTCFullYear();
+  const m = String(kstDate.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(kstDate.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function enforceDailyRateLimit(uid, action, limitPerDay) {
+  if (!uid) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다.");
+  }
+  const safeAction = typeof action === "string" && action ? action : "unknown";
+  const limit = typeof limitPerDay === "number" && limitPerDay > 0 ? limitPerDay : 10;
+
+  const todayKey = formatKstDateKey(new Date());
+  const docId = `${uid}_${safeAction}_${todayKey}`;
+  const ref = db.collection("rate_limits").doc(docId);
+
+  let newCount = null;
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const current = snap.exists ? snap.data() : {};
+      const count = typeof current.count === "number" ? current.count : 0;
+
+      if (count >= limit) {
+        throw new functions.https.HttpsError(
+          "resource-exhausted",
+          `일일 사용 횟수를 초과했습니다. (하루 ${limit}회)`,
+        );
+      }
+
+      newCount = count + 1;
+      tx.set(ref, {
+        uid,
+        action: safeAction,
+        dateKey: todayKey,
+        count: newCount,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
+  } catch (e) {
+    if (e instanceof functions.https.HttpsError) throw e;
+    throw new functions.https.HttpsError(
+      "internal",
+      "사용량 제한 처리 중 오류가 발생했습니다.",
+    );
+  }
+
+  return { dateKey: todayKey, count: newCount, limit };
+}
+
 // --- Admin Sync Log Helper (운영용 장기 로그) ---
 async function logAdminSync(type, status, message, meta, context) {
   try {
@@ -262,7 +316,8 @@ exports.checkApiKeyStatus = functions.https.onCall(async (data, context) => {
 
 // --- 적합성 분석 Cloud Function ---
 exports.checkSuitability = functions.https.onCall(async (data, context) => {
-  await requireProOrAbove(context);
+  const uid = requireAuth(context);
+  await enforceDailyRateLimit(uid, "checkSuitability", 10);
 
   const userProfile = data.userProfile;
   const analysisResult = data.analysisResult;
@@ -343,7 +398,8 @@ exports.checkSuitability = functions.https.onCall(async (data, context) => {
 
 // --- Chat with Gemini Cloud Function ---
 exports.chatWithGemini = functions.https.onCall(async (request, context) => {
-  requireAuth(context);
+  const uid = requireAuth(context);
+  await enforceDailyRateLimit(uid, "chatWithGemini", 10);
 
   const payload = request && typeof request === "object" && "data" in request ?
     request.data :

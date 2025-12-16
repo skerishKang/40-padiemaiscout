@@ -158,8 +158,7 @@ export default function Dashboard() {
             setRecoEmpty(null);
             if (!user || !userProfile) return;
             const role = userProfile?.role;
-            // Pro 이상에게만 실제 추천 로직 적용
-            if (!isProOrAboveRole(role)) return;
+            if (!role) return;
             if (allGrants.length === 0) return;
 
             setRecommendedGrants([]);
@@ -226,6 +225,16 @@ export default function Dashboard() {
                     } catch (e) {
                         // 개별 공고 실패는 무시하고 다음으로 진행
                         console.error('checkSuitability failed for grant', grant.id, e);
+                        const message = e instanceof Error ? e.message : String(e);
+                        if (message.includes('resource-exhausted') || message.includes('일일 사용 횟수')) {
+                            setRecoEmpty({
+                                title: '오늘 AI 추천 사용 횟수를 모두 사용했습니다.',
+                                description: '내일 다시 시도해 주세요. 회원가입/로그인을 하면 추후 더 많은 사용량을 제공할 예정입니다.',
+                                ctaHref: '/login',
+                                ctaLabel: '로그인/회원가입',
+                            });
+                            break;
+                        }
                     }
                 }
 
