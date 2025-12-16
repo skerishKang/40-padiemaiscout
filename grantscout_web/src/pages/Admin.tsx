@@ -41,6 +41,7 @@ export default function Admin() {
     const [analysisStats, setAnalysisStats] = useState({ scrapedGrants: 0, analyzedScrapedGrants: 0, pendingScrapedGrants: 0 });
     const [syncSinceDate, setSyncSinceDate] = useState('');
     const [syncRangeDays, setSyncRangeDays] = useState(7);
+    const [syncMaxPages, setSyncMaxPages] = useState(10);
     const [bizinfoSyncing, setBizinfoSyncing] = useState(false);
     const [kStartupSyncing, setKStartupSyncing] = useState(false);
     const [analyzeSyncing, setAnalyzeSyncing] = useState(false);
@@ -70,7 +71,7 @@ export default function Admin() {
         setSyncResult(null);
         try {
             const scrapeBizinfo = httpsCallable(functions, 'scrapeBizinfo');
-            const result = await scrapeBizinfo({ sinceDate: syncSinceDate, rangeDays: syncRangeDays });
+            const result = await scrapeBizinfo({ sinceDate: syncSinceDate, rangeDays: syncRangeDays, maxPages: syncMaxPages });
             const data = result.data as any;
             const detail = data && typeof data.newCount === 'number'
                 ? ` (신규 ${data.newCount} / 업데이트 ${data.updatedCount ?? 0} / 스킵 ${data.skippedCount ?? 0})`
@@ -93,7 +94,7 @@ export default function Admin() {
         setSyncResult(null);
         try {
             const scrapeKStartup = httpsCallable(functions, 'scrapeKStartup');
-            const result = await scrapeKStartup({ sinceDate: syncSinceDate, rangeDays: syncRangeDays });
+            const result = await scrapeKStartup({ sinceDate: syncSinceDate, rangeDays: syncRangeDays, maxPages: syncMaxPages });
             const data = result.data as any;
             const detail = data && typeof data.newCount === 'number'
                 ? ` (신규 ${data.newCount} / 업데이트 ${data.updatedCount ?? 0} / 스킵 ${data.skippedCount ?? 0})`
@@ -468,6 +469,25 @@ export default function Admin() {
                                         <option value={7}>7일</option>
                                     </select>
                                 </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-600 font-medium">페이지</span>
+                                    <select
+                                        value={syncMaxPages}
+                                        onChange={(e) => setSyncMaxPages(Number(e.target.value) || 10)}
+                                        className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white"
+                                    >
+                                        <option value={1}>1페이지</option>
+                                        <option value={2}>2페이지</option>
+                                        <option value={3}>3페이지</option>
+                                        <option value={4}>4페이지</option>
+                                        <option value={5}>5페이지</option>
+                                        <option value={6}>6페이지</option>
+                                        <option value={7}>7페이지</option>
+                                        <option value={8}>8페이지</option>
+                                        <option value={9}>9페이지</option>
+                                        <option value={10}>10페이지</option>
+                                    </select>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => setSyncSinceDate('')}
@@ -475,7 +495,7 @@ export default function Admin() {
                                 >
                                     초기화
                                 </button>
-                                <span className="text-slate-500">기준일을 선택하면 해당 날짜부터 기간만큼만 저장합니다(최대 7일).</span>
+                                <span className="text-slate-500">기준일을 선택하면 해당 날짜부터 기간만큼만 저장합니다(최대 7일). 페이지는 최대 10페이지까지 지정할 수 있습니다.</span>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button

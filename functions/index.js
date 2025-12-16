@@ -700,6 +700,15 @@ function clampRangeDays(value) {
   return v;
 }
 
+function clampMaxPages(value) {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 10;
+  const v = Math.round(n);
+  if (v < 1) return 1;
+  if (v > 10) return 10;
+  return v;
+}
+
 function addDaysUtc(date, days) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
@@ -806,7 +815,7 @@ async function performBizinfoScraping(options) {
   const rangeDays = options && typeof options.rangeDays !== "undefined" ? clampRangeDays(options.rangeDays) : 7;
   const endUtcExclusive = sinceUtc ? addDaysUtc(sinceUtc, rangeDays) : null;
 
-  const maxPages = 20;
+  const maxPages = options && typeof options.maxPages !== "undefined" ? clampMaxPages(options.maxPages) : 10;
   const rows = 15;
 
   try {
@@ -991,7 +1000,7 @@ async function performKStartupScraping(options) {
   const rangeDays = options && typeof options.rangeDays !== "undefined" ? clampRangeDays(options.rangeDays) : 7;
   const endUtcExclusive = sinceUtc ? addDaysUtc(sinceUtc, rangeDays) : null;
 
-  const maxPages = 20;
+  const maxPages = options && typeof options.maxPages !== "undefined" ? clampMaxPages(options.maxPages) : 10;
 
   try {
     const scrapedItems = [];
@@ -1542,7 +1551,8 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
       );
     }
     const rangeDays = payload && typeof payload.rangeDays !== "undefined" ? clampRangeDays(payload.rangeDays) : 7;
-    const result = await performBizinfoScraping({ sinceDate, rangeDays });
+    const maxPages = payload && typeof payload.maxPages !== "undefined" ? clampMaxPages(payload.maxPages) : 10;
+    const result = await performBizinfoScraping({ sinceDate, rangeDays, maxPages });
     try {
       await logAdminSync(
         "scrape_bizinfo",
@@ -1556,6 +1566,7 @@ exports.scrapeBizinfo = functions.https.onCall(async (request, context) => {
           skippedCount: result && typeof result.skippedCount === "number" ? result.skippedCount : null,
           sinceDate: sinceDate || null,
           rangeDays,
+          maxPages,
         },
         context,
       );
@@ -1599,7 +1610,8 @@ exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
       );
     }
     const rangeDays = payload && typeof payload.rangeDays !== "undefined" ? clampRangeDays(payload.rangeDays) : 7;
-    const result = await performKStartupScraping({ sinceDate, rangeDays });
+    const maxPages = payload && typeof payload.maxPages !== "undefined" ? clampMaxPages(payload.maxPages) : 10;
+    const result = await performKStartupScraping({ sinceDate, rangeDays, maxPages });
     try {
       await logAdminSync(
         "scrape_k_startup",
@@ -1613,6 +1625,7 @@ exports.scrapeKStartup = functions.https.onCall(async (request, context) => {
           skippedCount: result && typeof result.skippedCount === "number" ? result.skippedCount : null,
           sinceDate: sinceDate || null,
           rangeDays,
+          maxPages,
         },
         context,
       );
