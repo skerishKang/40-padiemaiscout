@@ -447,6 +447,21 @@ export default function Dashboard() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const favoriteCount = Object.keys(favoriteIds).length;
 
+    const parseDateToMillis = (value?: unknown) => {
+        if (!value) return null;
+        if (typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        const d = Number(m[3]);
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+        const dt = new Date(Date.UTC(y, mo - 1, d));
+        const ms = dt.getTime();
+        return Number.isFinite(ms) ? ms : null;
+    };
+
     // Filter Logic
     const filteredGrants = [...allGrants]
         .filter((grant) => {
@@ -473,6 +488,17 @@ export default function Dashboard() {
         })
         .sort((a, b) => {
             if (viewMode === 'newest') {
+                const aDate = parseDateToMillis((a as any).date);
+                const bDate = parseDateToMillis((b as any).date);
+                if (aDate !== null && bDate !== null) {
+                    return bDate - aDate;
+                }
+                if (aDate !== null && bDate === null) {
+                    return -1;
+                }
+                if (aDate === null && bDate !== null) {
+                    return 1;
+                }
                 const aTime = a.analyzedAt?.toMillis() || a.createdAt?.toMillis() || 0;
                 const bTime = b.analyzedAt?.toMillis() || b.createdAt?.toMillis() || 0;
                 return bTime - aTime;
