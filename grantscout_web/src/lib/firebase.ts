@@ -19,7 +19,7 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app, 'asia-northeast3');
+export const functions = getFunctions(app, 'us-central1');
 
 // Enable persistence for Auth (keeps user logged in across refreshes)
 setPersistence(auth, browserLocalPersistence).catch((error) => {
