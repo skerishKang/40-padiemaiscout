@@ -762,6 +762,9 @@ async function getBizinfoSchedulerConfigInternal() {
   const snap = await bizinfoSchedulerDocRef.get();
   const data = snap.exists ? snap.data() : {};
   const config = Object.assign({}, DEFAULT_BIZINFO_SCHEDULER_CONFIG, data || {});
+  if (typeof config.enabled !== "boolean") {
+    config.enabled = DEFAULT_BIZINFO_SCHEDULER_CONFIG.enabled;
+  }
   if (config.mode !== "daily" && config.mode !== "interval") {
     config.mode = DEFAULT_BIZINFO_SCHEDULER_CONFIG.mode;
   }
@@ -779,6 +782,9 @@ async function applyBizinfoSchedulerConfigUpdate(updates) {
   const safeUpdates = {};
   if (typeof updates.enabled === "boolean") {
     safeUpdates.enabled = updates.enabled;
+  }
+  if (typeof updates.enabled === "undefined") {
+    safeUpdates.enabled = false;
   }
   if (typeof updates.mode === "string") {
     safeUpdates.mode = updates.mode === "daily" ? "daily" : "interval";
@@ -827,8 +833,11 @@ async function performBizinfoScraping(options) {
       const $ = cheerio.load(html);
       const pageItems = [];
       let minRowDate = null;
+      let rowsSeen = 0;
+      let rowsFilteredByDate = 0;
 
       $("div.table_Type_1 table tbody tr").each((index, element) => {
+        rowsSeen += 1;
         const tds = $(element).find("td");
         if (tds.length < 8) {
           return;
@@ -852,9 +861,11 @@ async function performBizinfoScraping(options) {
             return;
           }
           if (rowDate.getTime() < sinceUtc.getTime()) {
+            rowsFilteredByDate += 1;
             return;
           }
           if (endUtcExclusive && rowDate.getTime() >= endUtcExclusive.getTime()) {
+            rowsFilteredByDate += 1;
             return;
           }
         }
@@ -921,8 +932,10 @@ async function performBizinfoScraping(options) {
       });
 
       if (pageItems.length === 0) {
+        console.log(`[bizinfo] page=${page} url=${pageUrl} rowsSeen=${rowsSeen} filteredByDate=${rowsFilteredByDate} pageItems=0 -> break`);
         break;
       }
+      console.log(`[bizinfo] page=${page} url=${pageUrl} rowsSeen=${rowsSeen} filteredByDate=${rowsFilteredByDate} pageItems=${pageItems.length}`);
       scrapedItems.push(...pageItems);
 
       if (sinceUtc && minRowDate && minRowDate.getTime() < sinceUtc.getTime()) {
