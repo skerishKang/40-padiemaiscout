@@ -164,13 +164,25 @@ exports.helloWorld = functions.https.onRequest((req, res) => {
   res.send("Hello from Firebase!");
 });
 
+function getFunctionsConfigSafe() {
+  try {
+    if (functions && typeof functions.config === "function") {
+      return functions.config() || {};
+    }
+  } catch (e) {
+    // 배포 분석/로컬 환경에서 config 접근 실패 시 무시
+  }
+  return {};
+}
+
 // --- Helper Function: 환경 변수에서 API 키 목록 가져오기 ---
 function getApiKeysFromEnv() {
   try {
+    const cfg = getFunctionsConfigSafe();
     const keysString = process.env.GEMINI_API_KEYS ||
       process.env.GEMINI_API_KEY ||
-      (functions.config().gemini &&
-        (functions.config().gemini.keys || functions.config().gemini.key));
+      (cfg.gemini &&
+        (cfg.gemini.keys || cfg.gemini.key));
     if (!keysString) {
       console.error(
         "환경 변수 'GEMINI_API_KEYS' 또는 'gemini.keys'가 설정되지 않았습니다.",
@@ -189,8 +201,9 @@ function getApiKeysFromEnv() {
 // --- Helper Function: 허용된 Gemini 모델 목록 읽기 ---
 function getAllowedModelsFromEnv() {
   try {
+    const cfg = getFunctionsConfigSafe();
     const modelsString = process.env.GEMINI_ALLOWED_MODELS ||
-      (functions.config().gemini && functions.config().gemini.models);
+      (cfg.gemini && cfg.gemini.models);
 
     const fallbackModels = [
       "gemini-2.5-flash-lite",
@@ -557,8 +570,9 @@ exports.chatWithGemini = functions.https.onCall(async (request, context) => {
 });
 
 // --- Toss Payments Confirmation ---
+const cfg = getFunctionsConfigSafe();
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ||
-  (functions.config().toss && functions.config().toss.secret_key);
+  (cfg.toss && cfg.toss.secret_key);
 const axios = require("axios");
 
 exports.confirmPayment = functions.https.onCall(async (request, context) => {
