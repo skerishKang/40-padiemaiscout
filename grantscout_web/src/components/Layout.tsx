@@ -178,7 +178,7 @@ export default function Layout() {
                             goToGrantsSearch(headerSearch);
                         }}
                     >
-                        <div className="flex items-center gap-2 w-full rounded-2xl bg-white/70 border border-slate-200 shadow-sm px-3 py-2">
+                        <div className="flex items-center gap-2 rounded-xl px-3 py-2">
                             <Search size={18} className="text-slate-400" />
                             <input
                                 value={headerSearch}
@@ -188,7 +188,7 @@ export default function Layout() {
                             />
                             <button
                                 type="submit"
-                                className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+                                className="px-3 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-600 hover:bg-slate-100/60 hover:text-slate-900"
                             >
                                 검색
                             </button>
